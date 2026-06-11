@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import Button from '../atoms/Button';
-import { BottomSheet, FIELD_CONTROL_CLASS, FieldShell, cn } from './fieldShared';
+import {
+  BottomSheet,
+  FIELD_CONTROL_CLASS,
+  FIELD_PLACEHOLDER_CLASS,
+  FieldShell,
+  cn,
+} from './fieldShared';
 
 export interface DatePickerFieldProps {
   label: string;
@@ -120,8 +126,8 @@ export function DatePickerField({
         >
           <Text
             className={cn(
-              'font-body text-body',
-              value ? 'text-primary' : 'text-med-gray',
+              'font-body text-base',
+              value ? 'text-primary' : FIELD_PLACEHOLDER_CLASS,
             )}
           >
             {displayValue || 'DD/MM/AAAA'}

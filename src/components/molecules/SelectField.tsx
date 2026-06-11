@@ -2,7 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Button from '../atoms/Button';
-import { BottomSheet, FIELD_CONTROL_CLASS, FieldShell, cn } from './fieldShared';
+import {
+  BottomSheet,
+  FIELD_CONTROL_CLASS,
+  FIELD_PLACEHOLDER_CLASS,
+  FieldShell,
+  cn,
+} from './fieldShared';
 
 export interface SelectOption {
   label: string;
@@ -59,8 +65,8 @@ export function SelectField({
         >
           <Text
             className={cn(
-              'flex-1 font-body text-body',
-              selectedOption ? 'text-primary' : 'text-med-gray',
+              'flex-1 font-body text-base',
+              selectedOption ? 'text-primary' : FIELD_PLACEHOLDER_CLASS,
             )}
           >
             {selectedOption?.label ?? placeholder}

@@ -1,7 +1,14 @@
 import { FontAwesome } from '@expo/vector-icons';
 import { forwardRef, useState } from 'react';
 import { Pressable, TextInput, TextInputProps, View } from 'react-native';
-import { FIELD_CONTROL_CLASS, FieldShell, cn } from './fieldShared';
+import {
+  FIELD_CONTROL_CLASS,
+  FIELD_INPUT_CLASS,
+  FIELD_PLACEHOLDER_CLASS,
+  FIELD_PLACEHOLDER_COLOR,
+  FieldShell,
+  cn,
+} from './fieldShared';
 
 export interface PasswordInputFieldProps extends TextInputProps {
   label: string;
@@ -44,7 +51,8 @@ export const PasswordInputField = forwardRef<TextInput, PasswordInputFieldProps>
           <TextInput
             ref={ref}
             className={cn(
-              'flex-1 font-body text-body text-primary',
+              FIELD_INPUT_CLASS,
+              !value && !defaultValue && FIELD_PLACEHOLDER_CLASS,
               className,
             )}
             editable={editable}
@@ -56,9 +64,10 @@ export const PasswordInputField = forwardRef<TextInput, PasswordInputFieldProps>
               setIsFocused(true);
               onFocus?.(event);
             }}
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={FIELD_PLACEHOLDER_COLOR}
             secureTextEntry={!isVisible}
             selectionColor="#18052E"
+            textAlignVertical="center"
             value={value}
             {...props}
             placeholder={placeholder}

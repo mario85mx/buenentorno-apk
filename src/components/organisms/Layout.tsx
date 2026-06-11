@@ -7,12 +7,16 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Card from '../atoms/Card';
 import Header from './Header';
 import Navbar, { NavbarItem } from './Navbar';
 import Sidebar, { SidebarItem } from './Sidebar';
 
 export interface LayoutProps {
   children: ReactNode;
+  onHomePress?: () => void;
+  onProfilePress?: () => void;
+  onNotificationsPress?: () => void;
 }
 
 const sidebarItems: SidebarItem[] = [
@@ -49,7 +53,12 @@ const navbarItems: NavbarItem[] = [
   { key: 'tickets', label: 'Tickets', icon: 'person-outline' },
 ];
 
-export default function Layout({ children }: LayoutProps) {
+export default function Layout({
+  children,
+  onHomePress,
+  onProfilePress,
+  onNotificationsPress,
+}: LayoutProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 960;
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -84,6 +93,9 @@ export default function Layout({ children }: LayoutProps) {
                 items={sidebarItems}
                 onSelectItem={(key) => {
                   setActiveSidebarItem(key);
+                  if (key === 'inicio') {
+                    onHomePress?.();
+                  }
                   if (!isDesktop) {
                     setIsSidebarOpen(false);
                   }
@@ -95,6 +107,8 @@ export default function Layout({ children }: LayoutProps) {
 
         <View className={`flex-1 ${contentWidthClass}`}>
           <Header
+            onNotificationsPress={onNotificationsPress}
+            onProfilePress={onProfilePress}
             showMenuButton={!isDesktop}
             onMenuPress={() => setIsSidebarOpen(true)}
           />
@@ -106,16 +120,9 @@ export default function Layout({ children }: LayoutProps) {
           >
             {children}
 
-            <View className="mt-5 rounded-3xl border border-light-gray bg-white p-5">
-              <Text className="font-heading text-xl text-primary">
-                Navegacion base lista
-              </Text>
-              <Text className="mt-2 font-body text-body text-med-gray">
-                `Layout.tsx` ahora compone `Sidebar.tsx`, `Header.tsx` y
-                `Navbar.tsx` para que la app ya tenga una estructura principal
-                reutilizable.
-              </Text>
-            </View>
+
+
+           
           </ScrollView>
 
           {!isDesktop ? (

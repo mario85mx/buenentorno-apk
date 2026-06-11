@@ -33,6 +33,9 @@ module.exports = {
         body: ['16px', { lineHeight: '24px', fontWeight: '400' }],
         caption: ['12px', { lineHeight: '16px', fontWeight: '400' }],
       },
+      spacing: {
+        'field-control': '34px',
+      },
     },
   },
   plugins: [],

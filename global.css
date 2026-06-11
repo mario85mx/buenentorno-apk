@@ -1,3 +1,45 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+  .card-base {
+    @apply rounded-lg border border-light-gray bg-white p-5;
+  }
+
+  .card-full {
+    @apply w-full;
+  }
+
+  .card-half {
+    @apply w-[48%];
+  }
+
+  .mobile-tabs-list {
+    @apply flex-row gap-2 rounded-xl border border-light-gray bg-white p-1;
+  }
+
+  .mobile-tabs-trigger {
+    @apply min-h-11 flex-1 items-center justify-center rounded-lg border border-transparent px-4 py-2.5;
+  }
+
+  .mobile-tabs-trigger-active {
+    @apply border-[#E5D7F5] bg-[#F3EEF8];
+  }
+
+  .mobile-tabs-panel {
+    @apply gap-4;
+  }
+
+  .field-shell {
+    @apply rounded-lg border bg-white px-4 py-3;
+  }
+
+  .field-control {
+    @apply min-h-field-control justify-center;
+  }
+
+  .field-input {
+    @apply flex-1 py-0 font-body text-base text-primary;
+  }
+}

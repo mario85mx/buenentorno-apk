@@ -1,6 +1,13 @@
 import { forwardRef, useState } from 'react';
-import { TextInput, TextInputProps } from 'react-native';
-import { FIELD_CONTROL_CLASS, FieldShell, cn } from './fieldShared';
+import { TextInput, TextInputProps, View } from 'react-native';
+import {
+  FIELD_CONTROL_CLASS,
+  FIELD_INPUT_CLASS,
+  FIELD_PLACEHOLDER_CLASS,
+  FIELD_PLACEHOLDER_COLOR,
+  FieldShell,
+  cn,
+} from './fieldShared';
 
 export interface InputFieldProps extends TextInputProps {
   label: string;
@@ -38,28 +45,31 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
         helperText={helperText}
         label={label}
       >
-        <TextInput
-          ref={ref}
-          className={cn(
-            FIELD_CONTROL_CLASS,
-            'font-body text-body text-primary',
-            className,
-          )}
-          editable={editable}
-          onBlur={(event) => {
-            setIsFocused(false);
-            onBlur?.(event);
-          }}
-          onFocus={(event) => {
-            setIsFocused(true);
-            onFocus?.(event);
-          }}
-          placeholderTextColor="#9CA3AF"
-          selectionColor="#18052E"
-          value={value}
-          {...props}
-          placeholder={placeholder}
-        />
+        <View className={FIELD_CONTROL_CLASS}>
+          <TextInput
+            ref={ref}
+            className={cn(
+              FIELD_INPUT_CLASS,
+              !value && !defaultValue && FIELD_PLACEHOLDER_CLASS,
+              className,
+            )}
+            editable={editable}
+            onBlur={(event) => {
+              setIsFocused(false);
+              onBlur?.(event);
+            }}
+            onFocus={(event) => {
+              setIsFocused(true);
+              onFocus?.(event);
+            }}
+            placeholderTextColor={FIELD_PLACEHOLDER_COLOR}
+            selectionColor="#18052E"
+            textAlignVertical="center"
+            value={value}
+            {...props}
+            placeholder={placeholder}
+          />
+        </View>
       </FieldShell>
     );
   },

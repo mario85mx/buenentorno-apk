@@ -6,6 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { colorTokens } from '../../theme/tokens';
 
 export interface FieldShellProps {
   label: string;
@@ -29,8 +30,11 @@ export function cn(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(' ');
 }
 
-export const FIELD_SHELL_CLASS = 'rounded-lg border bg-white px-4 py-3';
-export const FIELD_CONTROL_CLASS = 'min-h-[34px]';
+export const FIELD_SHELL_CLASS = 'field-shell';
+export const FIELD_CONTROL_CLASS = 'field-control';
+export const FIELD_INPUT_CLASS = 'field-input';
+export const FIELD_PLACEHOLDER_CLASS = 'text-dark-gray';
+export const FIELD_PLACEHOLDER_COLOR = colorTokens.darkGray;
 
 export function FieldShell({
   label,
