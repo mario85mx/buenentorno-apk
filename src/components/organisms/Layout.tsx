@@ -1,13 +1,11 @@
-import { ReactNode, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
-  Text,
   View,
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Card from '../atoms/Card';
 import Header from './Header';
 import Navbar, { NavbarItem } from './Navbar';
 import Sidebar, { SidebarItem } from './Sidebar';
@@ -15,8 +13,12 @@ import Sidebar, { SidebarItem } from './Sidebar';
 export interface LayoutProps {
   children: ReactNode;
   onHomePress?: () => void;
+  onAvisosPress?: () => void;
+  onTicketsPress?: () => void;
   onProfilePress?: () => void;
   onNotificationsPress?: () => void;
+  activeSidebarItemKey?: string;
+  activeNavbarItemKey?: string;
 }
 
 const sidebarItems: SidebarItem[] = [
@@ -31,16 +33,6 @@ const sidebarItems: SidebarItem[] = [
     icon: { library: 'feather', name: 'bell' },
   },
   {
-    key: 'areas',
-    label: 'Áreas Comunes',
-    icon: { library: 'material-icons', name: 'directions' },
-  },
-  {
-    key: 'encuestas',
-    label: 'Encuestas',
-    icon: { library: 'material-icons', name: 'poll' },
-  },
-  {
     key: 'tickets',
     label: 'Tickets',
     icon: { library: 'material-icons', name: 'support-agent' },
@@ -48,22 +40,38 @@ const sidebarItems: SidebarItem[] = [
 ];
 
 const navbarItems: NavbarItem[] = [
-  { key: 'finanzas', label: 'Finanzas', icon: 'home-outline' },
+  { key: 'inicio', label: 'Inicio', icon: 'home-outline' },
   { key: 'avisos', label: 'Avisos', icon: 'pulse-outline' },
-  { key: 'tickets', label: 'Tickets', icon: 'person-outline' },
+  { key: 'tickets', label: 'Tickets', icon: 'ticket-outline' },
 ];
 
 export default function Layout({
   children,
   onHomePress,
+  onAvisosPress,
+  onTicketsPress,
   onProfilePress,
   onNotificationsPress,
+  activeSidebarItemKey,
+  activeNavbarItemKey,
 }: LayoutProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 960;
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeSidebarItem, setActiveSidebarItem] = useState(sidebarItems[0].key);
   const [activeNavbarItem, setActiveNavbarItem] = useState(navbarItems[0].key);
+
+  useEffect(() => {
+    if (activeSidebarItemKey) {
+      setActiveSidebarItem(activeSidebarItemKey);
+    }
+  }, [activeSidebarItemKey]);
+
+  useEffect(() => {
+    if (activeNavbarItemKey) {
+      setActiveNavbarItem(activeNavbarItemKey);
+    }
+  }, [activeNavbarItemKey]);
 
   const shouldShowSidebar = isDesktop || isSidebarOpen;
   const contentWidthClass = useMemo(
@@ -95,6 +103,12 @@ export default function Layout({
                   setActiveSidebarItem(key);
                   if (key === 'inicio') {
                     onHomePress?.();
+                  }
+                  if (key === 'avisos') {
+                    onAvisosPress?.();
+                  }
+                  if (key === 'tickets') {
+                    onTicketsPress?.();
                   }
                   if (!isDesktop) {
                     setIsSidebarOpen(false);
@@ -129,7 +143,18 @@ export default function Layout({
             <Navbar
               activeItem={activeNavbarItem}
               items={navbarItems}
-              onSelectItem={setActiveNavbarItem}
+              onSelectItem={(key) => {
+                setActiveNavbarItem(key);
+                if (key === 'inicio') {
+                  onHomePress?.();
+                }
+                if (key === 'avisos') {
+                  onAvisosPress?.();
+                }
+                if (key === 'tickets') {
+                  onTicketsPress?.();
+                }
+              }}
             />
           ) : null}
         </View>
