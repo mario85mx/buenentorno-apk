@@ -13,6 +13,14 @@ export interface PaymentTransactionDetailProps {
   transaction?: PaymentTransaction | null;
 }
 
+function formatReceiptDate(value: Date) {
+  return new Intl.DateTimeFormat('es-MX', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(value);
+}
+
 export default function PaymentTransactionDetail({
   onBack,
   transaction,
@@ -20,31 +28,56 @@ export default function PaymentTransactionDetail({
   const [isReceiptVisible, setIsReceiptVisible] = useState(false);
   const currentTransaction: PaymentTransaction = transaction ?? {
     id: 'movement-1',
+    kind: 'charge',
     concept: 'Mantenimiento Junio 2026',
+    concepts: ['Mantenimiento Junio 2026'],
+    summary: 'Cargo de mantenimiento asociado a la casa.',
+    dateLabel: 'Fecha de vencimiento',
     dueDate: '10/06/2026',
     status: 'Pendiente',
     amount: '$120.00',
+    reference: 'Sin referencia',
+    method: 'Sin método registrado',
     badgeVariant: 'warning',
     receipt: null,
   };
 
   const currentReceipt = currentTransaction.receipt;
+  const transactionConcepts =
+    Array.isArray(currentTransaction.concepts) &&
+    currentTransaction.concepts.length > 0
+      ? currentTransaction.concepts
+      : [currentTransaction.concept];
+  const receiptConcepts =
+    Array.isArray(currentReceipt?.concepts) && currentReceipt.concepts.length > 0
+      ? currentReceipt.concepts
+      : [];
+  const receiptConceptDetails =
+    Array.isArray(currentReceipt?.conceptDetails) &&
+    currentReceipt.conceptDetails.length > 0
+      ? currentReceipt.conceptDetails
+      : receiptConcepts.map((concept) => ({
+          label: concept,
+          amount: currentReceipt?.conceptsAmount ?? currentReceipt?.amount ?? '$0.00',
+        }));
+  const downloadDate = useMemo(() => formatReceiptDate(new Date()), []);
   const detailRows = [
-    { label: 'Concepto', value: currentTransaction.concept },
-    { label: 'Fecha de vencimiento', value: currentTransaction.dueDate },
+    { label: currentTransaction.dateLabel, value: currentTransaction.dueDate },
     {
       label: 'Referencia',
-      value: currentReceipt?.reference ?? 'Sin referencia',
+      value: currentReceipt?.reference ?? currentTransaction.reference,
     },
     {
       label: 'Metodo de pago',
-      value: currentReceipt?.method ?? 'Sin método registrado',
+      value: currentReceipt?.method ?? currentTransaction.method,
     },
   ];
   const amountColor =
     currentTransaction.status === 'Pagado'
       ? 'text-success'
-      : currentTransaction.status === 'Vencido'
+      : currentTransaction.status === 'Vencido' ||
+          currentTransaction.status === 'Rechazado' ||
+          currentTransaction.status === 'Cancelado'
         ? 'text-danger'
         : 'text-warning';
   const showReceiptButton =
@@ -54,9 +87,22 @@ export default function PaymentTransactionDetail({
       currentReceipt
         ? [
             { label: 'Folio', value: `#${currentReceipt.id}` },
-            { label: 'Casa', value: `Casa ${currentReceipt.unit}` },
-            { label: 'Tipos', value: currentReceipt.types },
-            { label: 'Monto', value: currentReceipt.amount },
+            { label: 'Casa', value: `Casa ${currentReceipt.unit ?? 'Sin casa'}` },
+            {
+              label: 'Tipos',
+              value:
+                currentReceipt.types ??
+                (receiptConcepts.join(', ') || 'Pago reportado'),
+            },
+            { label: 'Monto total pagado', value: currentReceipt.amount },
+            {
+              label: 'Monto de conceptos',
+              value: currentReceipt.conceptsAmount ?? currentReceipt.amount,
+            },
+            {
+              label: 'Saldo a favor generado',
+              value: currentReceipt.creditGenerated ?? '$0.00',
+            },
             { label: 'Fecha de pago', value: currentReceipt.paymentDate },
             { label: 'Método', value: currentReceipt.method },
             { label: 'Referencia', value: currentReceipt.reference },
@@ -131,9 +177,35 @@ export default function PaymentTransactionDetail({
                     ))}
                   </View>
 
-                  <Text className="font-body text-xs text-med-gray">
-                    Documento visual generado desde la app de Buen Entorno.
-                  </Text>
+                  <View className="gap-3 border-t border-light-gray pt-4">
+                    <Text className="font-heading text-lg text-primary">
+                      Conceptos liquidados
+                    </Text>
+                    <View className="gap-2">
+                      {receiptConceptDetails.map((detail, index) => (
+                        <View
+                          key={`${detail.label}-${index}`}
+                          className="flex-row items-start justify-between gap-4 border-b border-light-gray pb-3"
+                        >
+                          <Text className="flex-1 font-body-semibold text-base text-primary">
+                            {index + 1}. {detail.label}
+                          </Text>
+                          <Text className="font-heading text-base text-primary">
+                            {detail.amount}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+
+                  <View className="gap-2 pt-2">
+                    <Text className="font-body text-xs text-med-gray">
+                      Documento generado desde el portal de condominio de Buen Entorno.
+                    </Text>
+                    <Text className="font-body text-xs text-med-gray">
+                      Fecha de descarga: {downloadDate}
+                    </Text>
+                  </View>
                 </View>
               </View>
 
@@ -151,7 +223,7 @@ export default function PaymentTransactionDetail({
                     {currentTransaction.concept}
                   </Text>
                   <Text className="font-body text-sm text-med-gray">
-                    Movimiento generado para la cuota mensual de mantenimiento.
+                    {currentTransaction.summary}
                   </Text>
                 </View>
 
@@ -163,6 +235,27 @@ export default function PaymentTransactionDetail({
                   <Text className={`font-heading text-2xl ${amountColor}`}>
                     {currentTransaction.amount}
                   </Text>
+                </View>
+              </View>
+
+              <View className="gap-3">
+                <Text className="font-heading text-sm text-primary">
+                  Conceptos
+                </Text>
+                <View className="gap-2">
+                  {transactionConcepts.map((concept, index) => (
+                    <View
+                      key={`${concept}-${index}`}
+                      className="flex-row items-start gap-3 border-b border-light-gray pb-3"
+                    >
+                      <Text className="font-heading text-sm text-primary">
+                        {index + 1}.
+                      </Text>
+                      <Text className="flex-1 font-body-semibold text-sm text-primary">
+                        {concept}
+                      </Text>
+                    </View>
+                  ))}
                 </View>
               </View>
 

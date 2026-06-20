@@ -4,14 +4,26 @@ export type TransactionStatus =
   | 'Pagado'
   | 'Pendiente'
   | 'Vencido'
-  | 'En revisión';
+  | 'En revisión'
+  | 'Rechazado'
+  | 'Cancelado'
+  | 'Parcial';
 export type TransactionBadgeVariant = 'success' | 'danger' | 'warning';
+
+export interface PaymentConceptDetail {
+  label: string;
+  amount: string;
+}
 
 export interface PaymentTransactionReceipt {
   id: string;
   unit: string;
   types: string;
+  concepts: string[];
+  conceptDetails: PaymentConceptDetail[];
   amount: string;
+  conceptsAmount: string;
+  creditGenerated: string;
   paymentDate: string;
   method: string;
   reference: string;
@@ -22,10 +34,16 @@ export interface PaymentTransactionReceipt {
 
 export interface PaymentTransaction {
   id: string;
+  kind: 'charge' | 'payment';
   concept: string;
+  concepts: string[];
+  summary: string;
+  dateLabel: string;
   dueDate: string;
   status: TransactionStatus;
   amount: string;
+  reference: string;
+  method: string;
   badgeVariant: TransactionBadgeVariant;
   receipt?: PaymentTransactionReceipt | null;
 }
@@ -42,7 +60,13 @@ export type ReceiptBadgeVariant = 'warning' | 'success' | 'danger';
 export interface PaymentReceipt {
   id: string;
   type: string;
+  unit: string;
+  types: string;
+  concepts: string[];
+  conceptDetails: PaymentConceptDetail[];
   amount: string;
+  conceptsAmount: string;
+  creditGenerated: string;
   generated: string;
   paymentDate: string;
   dueDate: string;

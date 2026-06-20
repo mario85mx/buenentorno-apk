@@ -19,6 +19,7 @@ import type {
   HomeOverview,
   Notice,
   NotificationViewModel,
+  PaymentConceptDetail,
   PaymentReceipt,
   PaymentTransactionReceipt,
   PaymentTransaction,
@@ -256,7 +257,9 @@ function getChargeStatusBadgeVariant(
     return 'success';
   }
 
-  return status === 'Vencido' ? 'danger' : 'warning';
+  return status === 'Vencido' || status === 'Rechazado' || status === 'Cancelado'
+    ? 'danger'
+    : 'warning';
 }
 
 function getUnitBlockedChargeIds(unit: UnitDetailDto) {
@@ -333,6 +336,87 @@ function paymentReviewLabel(payment: PaymentDto, status: PaymentReceipt['status'
   return 'Pendiente de revisión';
 }
 
+function dedupeConcepts(concepts: Array<string | null | undefined>) {
+  return Array.from(
+    new Set(
+      concepts
+        .map((concept) => asText(concept))
+        .filter((concept): concept is string => concept !== null),
+    ),
+  );
+}
+
+function getMovementConceptPreview(concepts: string[]) {
+  return concepts.slice(0, 2).join(', ');
+}
+
+function getPaymentConcepts(payment: PaymentDto, unit: UnitDetailDto) {
+  const conceptDetails = getPaymentConceptDetails(payment, unit);
+  return conceptDetails.map((detail) => detail.label);
+}
+
+function getPaymentConceptDetails(
+  payment: PaymentDto,
+  unit: UnitDetailDto,
+): PaymentConceptDetail[] {
+  const detailMap = new Map<string, number>();
+
+  payment.allocations.forEach((allocation) => {
+    const charge = allocation.chargeId
+      ? unit.charges.find((item) => item.id === allocation.chargeId) ?? null
+      : null;
+    const label =
+      charge?.concept ??
+      (payment.types.length === 1 ? chargeTypeLabel(payment.types[0]) : null) ??
+      'Pago reportado';
+    const current = detailMap.get(label) ?? 0;
+    detailMap.set(label, current + allocation.amount);
+  });
+
+  if (detailMap.size > 0) {
+    return Array.from(detailMap.entries()).map(([label, amount]) => ({
+      label,
+      amount: formatCurrency(amount),
+    }));
+  }
+  const fallbackConcepts = dedupeConcepts(payment.types.map(chargeTypeLabel));
+
+  if (fallbackConcepts.length > 0) {
+    return fallbackConcepts.map((label) => ({
+      label,
+      amount: formatCurrency(payment.amount),
+    }));
+  }
+
+  return [{ label: 'Pago reportado', amount: formatCurrency(payment.amount) }];
+}
+
+function getPaymentTypesSummary(payment: PaymentDto) {
+  if (payment.types.length > 0) {
+    return payment.types.map(chargeTypeLabel).join(', ');
+  }
+
+  return 'Pago reportado';
+}
+
+function getPaymentConceptsAmount(payment: PaymentDto) {
+  const conceptsAmount = payment.allocations.reduce(
+    (sum, allocation) => sum + allocation.amount,
+    0,
+  );
+
+  return formatCurrency(conceptsAmount);
+}
+
+function getPaymentCreditGenerated(payment: PaymentDto) {
+  const conceptsAmount = payment.allocations.reduce(
+    (sum, allocation) => sum + allocation.amount,
+    0,
+  );
+
+  return formatCurrency(Math.max(payment.amount - conceptsAmount, 0));
+}
+
 function sanitizeHtmlToParagraphs(html: string) {
   const normalized = html
     .replace(/<\/p>\s*<p>/gi, '\n\n')
@@ -395,6 +479,32 @@ export function mapChargesToTransactions(
     .map(({ charge, unit }) => mapChargeToTransaction(charge, unit));
 }
 
+export function mapAccountMovements(
+  condomino: CondominoDetailDto | undefined,
+): PaymentTransaction[] {
+  if (!condomino) {
+    return [];
+  }
+
+  const chargeMovements = condomino.units.flatMap((unit) =>
+    unit.charges.map((charge) => ({
+      transaction: mapChargeToTransaction(charge, unit),
+      sortAt: new Date(charge.dueDate ?? charge.createdAt).getTime(),
+    })),
+  );
+
+  const paymentMovements = condomino.units.flatMap((unit) =>
+    unit.payments.map((payment) => ({
+      transaction: mapPaymentToTransaction(payment, unit),
+      sortAt: new Date(payment.paymentDate ?? payment.createdAt).getTime(),
+    })),
+  );
+
+  return [...chargeMovements, ...paymentMovements]
+    .sort((left, right) => right.sortAt - left.sortAt)
+    .map(({ transaction }) => transaction);
+}
+
 function mapChargeToTransaction(
   charge: ChargeDto,
   unit: UnitDetailDto,
@@ -406,35 +516,73 @@ function mapChargeToTransaction(
   const sourcePayment = sourcePaymentId
     ? unit.payments.find((payment) => payment.id === sourcePaymentId) ?? null
     : null;
+  const concepts = [charge.concept];
 
   return {
     id: String(charge.id),
-    concept: `${charge.concept} · ${unit.houseNumber}`,
+    kind: 'charge',
+    concept: getMovementConceptPreview(concepts),
+    concepts,
+    summary: `Cargo de ${chargeTypeLabel(charge.type).toLowerCase()} asociado a la casa ${unit.houseNumber}.`,
+    dateLabel: 'Fecha de vencimiento',
     dueDate: formatDate(charge.dueDate ?? charge.createdAt),
     status,
     amount: formatCurrency(amount),
+    reference: sourcePayment ? asText(sourcePayment.reference) ?? 'Sin referencia' : 'Sin referencia',
+    method: sourcePayment
+      ? paymentMethodLabel(sourcePayment.method)
+      : 'Sin método registrado',
     badgeVariant: getChargeStatusBadgeVariant(status),
-    receipt: sourcePayment ? mapTransactionReceipt(sourcePayment, unit.houseNumber) : null,
+    receipt: sourcePayment ? mapTransactionReceipt(sourcePayment, unit) : null,
+  };
+}
+
+function mapPaymentToTransaction(
+  payment: PaymentDto,
+  unit: UnitDetailDto,
+): PaymentTransaction {
+  const receipt = mapTransactionReceipt(payment, unit);
+  const concepts = getPaymentConcepts(payment, unit);
+  const status = paymentStatusLabel(payment.status);
+  const paymentLabel = payment.isHistorical ? 'Pago histórico' : 'Pago registrado';
+
+  return {
+    id: `payment-${payment.id}`,
+    kind: 'payment',
+    concept: getMovementConceptPreview(concepts),
+    concepts,
+    summary: `${paymentLabel} aplicado a la cuenta de la casa ${unit.houseNumber}.`,
+    dateLabel: 'Fecha de pago',
+    dueDate: formatDate(payment.paymentDate),
+    status,
+    amount: formatCurrency(payment.amount),
+    reference: asText(payment.reference) ?? 'Sin referencia',
+    method: paymentMethodLabel(payment.method),
+    badgeVariant: paymentStatusBadgeVariant(status),
+    receipt,
   };
 }
 
 function mapTransactionReceipt(
   payment: PaymentDto,
-  houseNumber: string,
+  unit: UnitDetailDto,
 ): PaymentTransactionReceipt {
   const printableStatus =
     payment.status.toUpperCase() === 'ACTIVE'
       ? 'Pagado'
       : paymentStatusLabel(payment.status);
+  const concepts = getPaymentConcepts(payment, unit);
+  const conceptDetails = getPaymentConceptDetails(payment, unit);
 
   return {
     id: String(payment.id),
-    unit: houseNumber,
-    types:
-      payment.types.length > 0
-        ? payment.types.map(chargeTypeLabel).join(', ')
-        : 'Pago reportado',
+    unit: unit.houseNumber,
+    types: getPaymentTypesSummary(payment),
+    concepts,
+    conceptDetails,
     amount: formatCurrency(payment.amount),
+    conceptsAmount: getPaymentConceptsAmount(payment),
+    creditGenerated: getPaymentCreditGenerated(payment),
     paymentDate: formatDate(payment.paymentDate),
     method: paymentMethodLabel(payment.method),
     reference: asText(payment.reference) ?? 'Sin referencia',
@@ -457,32 +605,36 @@ export function mapPaymentsToReceipts(
         payment.receipts.map((receipt) => ({
           payment,
           receipt,
-          houseNumber: unit.houseNumber,
+          unit,
           sortAt: new Date(receipt.uploadedAt).getTime(),
         })),
       ),
     )
     .sort((left, right) => right.sortAt - left.sortAt)
-    .map(({ payment, receipt, houseNumber }) =>
-      mapReceipt(payment, receipt, houseNumber),
+    .map(({ payment, receipt, unit }) =>
+      mapReceipt(payment, receipt, unit),
     );
 }
 
 function mapReceipt(
   payment: PaymentDto,
   receipt: PaymentDto['receipts'][number],
-  houseNumber: string,
+  unit: UnitDetailDto,
 ): PaymentReceipt {
-  const receiptTypes =
-    payment.types.length > 0
-      ? payment.types.map(chargeTypeLabel).join(', ')
-      : 'Pago reportado';
+  const concepts = getPaymentConcepts(payment, unit);
+  const conceptDetails = getPaymentConceptDetails(payment, unit);
   const status = paymentStatusLabel(payment.status);
 
   return {
     id: String(receipt.id),
-    type: `${receiptTypes} · ${houseNumber}`,
+    type: getMovementConceptPreview(concepts),
+    unit: unit.houseNumber,
+    types: getPaymentTypesSummary(payment),
+    concepts,
+    conceptDetails,
     amount: formatCurrency(payment.amount),
+    conceptsAmount: getPaymentConceptsAmount(payment),
+    creditGenerated: getPaymentCreditGenerated(payment),
     generated: formatDate(receipt.uploadedAt),
     paymentDate: formatDate(payment.paymentDate),
     dueDate: formatDate(payment.paymentDate),

@@ -21,6 +21,14 @@ export interface PaymentReceiptDetailProps {
   receipt?: PaymentReceipt | null;
 }
 
+function formatReceiptDate(value: Date) {
+  return new Intl.DateTimeFormat('es-MX', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(value);
+}
+
 export default function PaymentReceiptDetail({
   onBack,
   receipt,
@@ -30,7 +38,13 @@ export default function PaymentReceiptDetail({
   const currentReceipt: PaymentReceipt = receipt ?? {
     id: 'receipt-1',
     type: 'Pago de mantenimiento',
+    unit: '38',
+    types: 'Mantenimiento',
+    concepts: ['Mantenimiento Junio 2026'],
+    conceptDetails: [{ label: 'Mantenimiento Junio 2026', amount: '$120.00' }],
     amount: '$120.00',
+    conceptsAmount: '$120.00',
+    creditGenerated: '$0.00',
     generated: '01/06/2026',
     paymentDate: '08/06/2026',
     dueDate: '10/06/2026',
@@ -44,6 +58,19 @@ export default function PaymentReceiptDetail({
     mimeType: 'application/pdf',
     badgeVariant: 'success',
   };
+  const receiptConcepts =
+    Array.isArray(currentReceipt.concepts) && currentReceipt.concepts.length > 0
+      ? currentReceipt.concepts
+      : [currentReceipt.type];
+  const conceptDetails =
+    Array.isArray(currentReceipt.conceptDetails) &&
+    currentReceipt.conceptDetails.length > 0
+      ? currentReceipt.conceptDetails
+      : receiptConcepts.map((concept) => ({
+          label: concept,
+          amount: currentReceipt.conceptsAmount ?? currentReceipt.amount,
+        }));
+  const downloadDate = useMemo(() => formatReceiptDate(new Date()), []);
 
   const amountColor =
     currentReceipt.status === 'Pagado'
@@ -153,17 +180,27 @@ export default function PaymentReceiptDetail({
   ]);
 
   const detailRows = [
-    { label: 'Tipos', value: currentReceipt.type },
-    { label: 'Monto', value: currentReceipt.amount },
-    { label: 'Generado', value: currentReceipt.generated },
-    { label: 'Fecha pago', value: currentReceipt.paymentDate },
-    { label: 'Vence', value: currentReceipt.dueDate },
-    { label: 'Método', value: currentReceipt.method },
+    { label: 'Folio', value: `#${currentReceipt.id}` },
+    { label: 'Casa', value: `Casa ${currentReceipt.unit ?? 'Sin casa'}` },
+    {
+      label: 'Tipos',
+      value: currentReceipt.types ?? (receiptConcepts.join(', ') || 'Pago reportado'),
+    },
+    { label: 'Monto total pagado', value: currentReceipt.amount },
+    {
+      label: 'Monto de conceptos',
+      value: currentReceipt.conceptsAmount ?? currentReceipt.amount,
+    },
+    {
+      label: 'Saldo a favor generado',
+      value: currentReceipt.creditGenerated ?? '$0.00',
+    },
+    { label: 'Fecha de pago', value: currentReceipt.paymentDate },
+    { label: 'Metodo', value: currentReceipt.method },
     { label: 'Referencia', value: currentReceipt.reference },
-    { label: 'Clave de Rastreo', value: currentReceipt.trackingKey },
+    { label: 'Clave de rastreo', value: currentReceipt.trackingKey },
     { label: 'Estatus', value: currentReceipt.status },
-    { label: 'Revisión', value: currentReceipt.review },
-    { label: 'Comprobante', value: currentReceipt.voucher },
+    { label: 'Revision', value: currentReceipt.review },
   ];
 
   return (
@@ -223,6 +260,36 @@ export default function PaymentReceiptDetail({
                 </Text>
               </View>
             ))}
+          </View>
+
+          <View className="gap-3 border-t border-light-gray pt-4">
+            <Text className="font-heading text-lg text-primary">
+              Conceptos liquidados
+            </Text>
+            <View className="gap-2">
+              {conceptDetails.map((detail, index) => (
+                <View
+                  key={`${detail.label}-${index}`}
+                  className="flex-row items-start justify-between gap-4 border-b border-light-gray pb-3"
+                >
+                  <Text className="flex-1 font-body-semibold text-base text-primary">
+                    {index + 1}. {detail.label}
+                  </Text>
+                  <Text className="font-heading text-base text-primary">
+                    {detail.amount}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          <View className="gap-2 pt-2">
+            <Text className="font-body text-xs text-med-gray">
+              Documento generado desde el portal de condominio de Buen Entorno.
+            </Text>
+            <Text className="font-body text-xs text-med-gray">
+              Fecha de descarga: {downloadDate}
+            </Text>
           </View>
 
           <View className="gap-3">

@@ -15,7 +15,7 @@ import {
   isNetworkError,
 } from '../services/error';
 import {
-  mapChargesToTransactions,
+  mapAccountMovements,
   mapDashboardOverview,
   mapPaymentsToReceipts,
 } from '../services/mappers';
@@ -31,6 +31,9 @@ const movementStatusOptions = [
   'Vencido',
   'En revisión',
   'Pagado',
+  'Parcial',
+  'Rechazado',
+  'Cancelado',
 ] as const;
 const receiptStatusOptions = [
   'Todos',
@@ -51,7 +54,27 @@ function movementAmountColor(status: PaymentTransaction['status']) {
     return 'text-warning';
   }
 
+  if (status === 'Parcial') {
+    return 'text-warning';
+  }
+
   return 'text-danger';
+}
+
+function getTransactionConcepts(movement: PaymentTransaction) {
+  if (Array.isArray(movement.concepts) && movement.concepts.length > 0) {
+    return movement.concepts;
+  }
+
+  return movement.concept ? [movement.concept] : [];
+}
+
+function getReceiptConcepts(receipt: PaymentReceipt) {
+  if (Array.isArray(receipt.concepts) && receipt.concepts.length > 0) {
+    return receipt.concepts;
+  }
+
+  return receipt.type ? [receipt.type] : [];
 }
 
 interface HomeProps {
@@ -90,7 +113,7 @@ export default function Home({
     [condominiumQuery.data, dashboardQuery.data],
   );
   const movementItems = useMemo(
-    () => mapChargesToTransactions(condominiumQuery.data),
+    () => mapAccountMovements(condominiumQuery.data),
     [condominiumQuery.data],
   );
   const receiptItems = useMemo(
@@ -120,10 +143,15 @@ export default function Home({
 
   const filteredMovements = movementItems.filter((movement) => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
+    const concepts = getTransactionConcepts(movement);
     const matchesSearch =
       normalizedQuery.length === 0 ||
       movement.concept.toLowerCase().includes(normalizedQuery) ||
-      movement.dueDate.includes(searchQuery.trim());
+      concepts.some((concept) =>
+        concept.toLowerCase().includes(normalizedQuery),
+      ) ||
+      movement.dueDate.includes(searchQuery.trim()) ||
+      movement.reference.toLowerCase().includes(normalizedQuery);
     const matchesStatus =
       selectedMovementStatus === 'Todos' ||
       movement.status === selectedMovementStatus;
@@ -133,9 +161,13 @@ export default function Home({
 
   const filteredReceipts = receiptItems.filter((receipt) => {
     const normalizedQuery = receiptSearchQuery.trim().toLowerCase();
+    const concepts = getReceiptConcepts(receipt);
     const matchesSearch =
       normalizedQuery.length === 0 ||
       receipt.type.toLowerCase().includes(normalizedQuery) ||
+      concepts.some((concept) =>
+        concept.toLowerCase().includes(normalizedQuery),
+      ) ||
       receipt.trackingKey.includes(receiptSearchQuery.trim()) ||
       receipt.paymentDate.includes(receiptSearchQuery.trim());
     const matchesStatus =
@@ -252,68 +284,77 @@ export default function Home({
                       </Text>
                     </Card>
                   ) : filteredMovements.length ? (
-                    filteredMovements.map((movement) => (
-                      <Pressable
-                        key={movement.id}
-                        accessibilityHint="Abre el detalle del movimiento"
-                        accessibilityRole="button"
-                        className="rounded-lg"
-                        onPress={() => onOpenPaymentTransactionDetail?.(movement)}
-                      >
-                        <Card className="rounded-lg border border-light-gray px-3 py-2">
-                          <View className="flex-row items-start justify-between">
-                            <View className="flex-1 gap-2 pr-3">
-                              <View className="flex-row items-center gap-1">
-                                <Text className="font-heading text-sm text-primary">
-                                  Concepto:
-                                </Text>
-                                <Text
-                                  className="flex-1 font-body-semibold text-sm text-primary"
-                                  numberOfLines={1}
-                                >
-                                  {movement.concept}
-                                </Text>
+                    filteredMovements.map((movement) => {
+                      const concepts = getTransactionConcepts(movement);
+
+                      return (
+                        <Pressable
+                          key={movement.id}
+                          accessibilityHint="Abre el detalle del movimiento"
+                          accessibilityRole="button"
+                          className="rounded-lg"
+                          onPress={() => onOpenPaymentTransactionDetail?.(movement)}
+                        >
+                          <Card className="rounded-lg border border-light-gray px-3 py-2">
+                            <View className="flex-row items-start justify-between">
+                              <View className="flex-1 gap-2 pr-3">
+                                <View className="gap-1">
+                                  <Text className="font-heading text-sm text-primary">
+                                    Conceptos:
+                                  </Text>
+                                  <View className="gap-1">
+                                    {concepts.slice(0, 2).map((concept) => (
+                                      <Text
+                                        key={`${movement.id}-${concept}`}
+                                        className="font-body-semibold text-sm text-primary"
+                                        numberOfLines={1}
+                                      >
+                                        {concept}
+                                      </Text>
+                                    ))}
+                                  </View>
+                                </View>
+
+                                <View className="flex-row items-center gap-1">
+                                  <Text className="font-heading text-sm text-primary">
+                                    {movement.dateLabel}:
+                                  </Text>
+                                  <Text
+                                    className="font-body-semibold text-sm text-primary"
+                                    numberOfLines={1}
+                                  >
+                                    {movement.dueDate}
+                                  </Text>
+                                </View>
                               </View>
 
-                              <View className="flex-row items-center gap-1">
-                                <Text className="font-heading text-sm text-primary">
-                                  Vence:
-                                </Text>
+                              <View className="shrink-0 items-end gap-2">
+                                <View className="flex-row items-center gap-1">
+                                  <Badge
+                                    className="self-end"
+                                    label={movement.status}
+                                    variant={movement.badgeVariant}
+                                  />
+                                  <Ionicons
+                                    color="#9CA3AF"
+                                    name="chevron-forward"
+                                    size={18}
+                                  />
+                                </View>
+
                                 <Text
-                                  className="font-body-semibold text-sm text-primary"
-                                  numberOfLines={1}
+                                  className={`w-full font-heading text-right text-sm ${movementAmountColor(
+                                    movement.status,
+                                  )}`}
                                 >
-                                  {movement.dueDate}
+                                  {movement.amount}
                                 </Text>
                               </View>
                             </View>
-
-                            <View className="shrink-0 items-end gap-2">
-                              <View className="flex-row items-center gap-1">
-                                <Badge
-                                  className="self-end"
-                                  label={movement.status}
-                                  variant={movement.badgeVariant}
-                                />
-                                <Ionicons
-                                  color="#9CA3AF"
-                                  name="chevron-forward"
-                                  size={18}
-                                />
-                              </View>
-
-                              <Text
-                                className={`w-full font-heading text-right text-sm ${movementAmountColor(
-                                  movement.status,
-                                )}`}
-                              >
-                                {movement.amount}
-                              </Text>
-                            </View>
-                          </View>
-                        </Card>
-                      </Pressable>
-                    ))
+                          </Card>
+                        </Pressable>
+                      );
+                    })
                   ) : (
                     <Card className="rounded-lg border border-light-gray px-4 py-4">
                       <Text className="font-body text-sm text-med-gray">
@@ -366,64 +407,73 @@ export default function Home({
                       </Text>
                     </Card>
                   ) : filteredReceipts.length ? (
-                    filteredReceipts.map((receipt) => (
-                      <Pressable
-                        key={receipt.id}
-                        accessibilityHint="Abre el detalle del comprobante"
-                        accessibilityRole="button"
-                        className="rounded-lg"
-                        onPress={() => onOpenPaymentReceiptDetail?.(receipt)}
-                      >
-                        <Card className="rounded-lg border border-light-gray px-3 py-2">
-                          <View className="flex-row items-start justify-between">
-                            <View className="flex-1 gap-2 pr-3">
-                              <View className="flex-row items-center gap-1">
-                                <Text className="font-heading text-sm text-primary">
-                                  Tipo:
-                                </Text>
-                                <Text
-                                  className="flex-1 font-body-semibold text-sm text-primary"
-                                  numberOfLines={1}
-                                >
-                                  {receipt.type}
-                                </Text>
+                    filteredReceipts.map((receipt) => {
+                      const concepts = getReceiptConcepts(receipt);
+
+                      return (
+                        <Pressable
+                          key={receipt.id}
+                          accessibilityHint="Abre el detalle del comprobante"
+                          accessibilityRole="button"
+                          className="rounded-lg"
+                          onPress={() => onOpenPaymentReceiptDetail?.(receipt)}
+                        >
+                          <Card className="rounded-lg border border-light-gray px-3 py-2">
+                            <View className="flex-row items-start justify-between">
+                              <View className="flex-1 gap-2 pr-3">
+                                <View className="gap-1">
+                                  <Text className="font-heading text-sm text-primary">
+                                    Conceptos:
+                                  </Text>
+                                  <View className="gap-1">
+                                    {concepts.slice(0, 2).map((concept) => (
+                                      <Text
+                                        key={`${receipt.id}-${concept}`}
+                                        className="font-body-semibold text-sm text-primary"
+                                        numberOfLines={1}
+                                      >
+                                        {concept}
+                                      </Text>
+                                    ))}
+                                  </View>
+                                </View>
+
+                                <View className="flex-row items-center gap-1">
+                                  <Text className="font-heading text-sm text-primary">
+                                    Fecha pago:
+                                  </Text>
+                                  <Text
+                                    className="font-body-semibold text-sm text-primary"
+                                    numberOfLines={1}
+                                  >
+                                    {receipt.paymentDate}
+                                  </Text>
+                                </View>
                               </View>
 
-                              <View className="flex-row items-center gap-1">
-                                <Text className="font-heading text-sm text-primary">
-                                  Fecha pago:
-                                </Text>
-                                <Text
-                                  className="font-body-semibold text-sm text-primary"
-                                  numberOfLines={1}
-                                >
-                                  {receipt.paymentDate}
+                              <View className="shrink-0 items-end gap-2">
+                                <View className="flex-row items-center gap-1">
+                                  <Badge
+                                    className="self-end"
+                                    label={receipt.status}
+                                    variant={receipt.badgeVariant}
+                                  />
+                                  <Ionicons
+                                    color="#9CA3AF"
+                                    name="chevron-forward"
+                                    size={18}
+                                  />
+                                </View>
+
+                                <Text className="w-full font-heading text-right text-sm text-success">
+                                  {receipt.amount}
                                 </Text>
                               </View>
                             </View>
-
-                            <View className="shrink-0 items-end gap-2">
-                              <View className="flex-row items-center gap-1">
-                                <Badge
-                                  className="self-end"
-                                  label={receipt.status}
-                                  variant={receipt.badgeVariant}
-                                />
-                                <Ionicons
-                                  color="#9CA3AF"
-                                  name="chevron-forward"
-                                  size={18}
-                                />
-                              </View>
-
-                              <Text className="w-full font-heading text-right text-sm text-success">
-                                {receipt.amount}
-                              </Text>
-                            </View>
-                          </View>
-                        </Card>
-                      </Pressable>
-                    ))
+                          </Card>
+                        </Pressable>
+                      );
+                    })
                   ) : (
                     <Card className="rounded-lg border border-light-gray px-4 py-4">
                       <Text className="font-body text-sm text-med-gray">
