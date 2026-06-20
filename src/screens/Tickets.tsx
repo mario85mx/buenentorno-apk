@@ -1,12 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Badge from '../components/atoms/Badge';
 import Button from '../components/atoms/Button';
 import Card from '../components/atoms/Card';
 import SelectField from '../components/molecules/SelectField';
+import { getErrorMessage } from '../services/error';
+import { mapTicketSummaryToViewModel } from '../services/mappers';
+import { queryKeys } from '../services/queryKeys';
+import { listTickets } from '../services/tickets';
 import {
-  Ticket,
+  type Ticket,
   getTicketPriorityVariant,
   getTicketStatusVariant,
   ticketPriorityOptions,
@@ -14,7 +19,6 @@ import {
 } from './ticketsData';
 
 interface TicketsProps {
-  tickets: Ticket[];
   onOpenTicketDetail?: (ticket: Ticket) => void;
   onOpenNewTicket?: () => void;
 }
@@ -30,13 +34,19 @@ const priorityFilterOptions = [
 ];
 
 export default function Tickets({
-  tickets,
   onOpenTicketDetail,
   onOpenNewTicket,
 }: TicketsProps) {
   const [selectedStatus, setSelectedStatus] = useState('Todos');
   const [selectedPriority, setSelectedPriority] = useState('Todas');
 
+  const ticketsQuery = useQuery({
+    queryKey: queryKeys.tickets,
+    queryFn: () => listTickets(),
+    select: (tickets) => tickets.map(mapTicketSummaryToViewModel),
+  });
+
+  const tickets = ticketsQuery.data ?? [];
   const filteredTickets = useMemo(
     () =>
       tickets.filter((ticket) => {
@@ -55,21 +65,25 @@ export default function Tickets({
       {
         label: 'Abiertos',
         value: tickets.filter((ticket) => ticket.status === 'Abierto').length,
-        valueClassName: 'text-danger',
+        valueClassName: 'text-warning',
       },
       {
         label: 'En Proceso',
         value: tickets.filter((ticket) => ticket.status === 'En proceso').length,
-        valueClassName: 'text-warning',
+        valueClassName: 'text-primary',
       },
       {
         label: 'En Espera',
-        value: tickets.filter((ticket) => ticket.status === 'En espera').length,
-        valueClassName: 'text-warning',
+        value: tickets.filter(
+          (ticket) => ticket.status === 'En espera del condómino',
+        ).length,
+        valueClassName: 'text-[#2F7CF6]',
       },
       {
         label: 'Cerrados',
-        value: tickets.filter((ticket) => ticket.status === 'Cerrado').length,
+        value: tickets.filter((ticket) =>
+          ticket.status === 'Resuelto' || ticket.status === 'Cerrado',
+        ).length,
         valueClassName: 'text-success',
       },
     ],
@@ -82,7 +96,7 @@ export default function Tickets({
         <View className="gap-2">
           <Text className="font-heading text-2xl text-primary">Tickets</Text>
           <Text className="font-body text-base text-med-gray">
-            Gestiona incidencias, solicitudes y seguimiento de mensajes.
+            Abre solicitudes a administración y da seguimiento a cada respuesta.
           </Text>
         </View>
 
@@ -123,7 +137,22 @@ export default function Tickets({
       </Card>
 
       <View className="gap-3">
-        {filteredTickets.length ? (
+        {ticketsQuery.isLoading ? (
+          <Card className="rounded-lg border border-light-gray px-4 py-4">
+            <Text className="font-body text-sm text-med-gray">
+              Cargando tickets...
+            </Text>
+          </Card>
+        ) : ticketsQuery.error ? (
+          <Card className="rounded-lg border border-light-gray px-4 py-4">
+            <Text className="font-body text-sm text-danger">
+              {getErrorMessage(
+                ticketsQuery.error,
+                'No fue posible cargar los tickets.',
+              )}
+            </Text>
+          </Card>
+        ) : filteredTickets.length ? (
           filteredTickets.map((ticket) => (
             <Pressable
               key={ticket.id}
@@ -165,6 +194,9 @@ export default function Tickets({
                   <View className="gap-1">
                     <Text className="font-body text-sm text-primary">
                       Casa: {ticket.house}
+                    </Text>
+                    <Text className="font-body text-sm text-primary">
+                      Mensajes: {ticket.messagesCount}
                     </Text>
                     <Text className="font-body text-sm text-med-gray">
                       Última actividad: {ticket.lastActivity}

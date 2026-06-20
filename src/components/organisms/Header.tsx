@@ -1,15 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, View } from 'react-native';
-import Animated, {
-  FadeInDown,
-  FadeInRight,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
+import {
+  Animated,
+  Easing,
+  Pressable,
+  View,
+} from 'react-native';
 
 export interface HeaderProps {
   showMenuButton?: boolean;
@@ -17,6 +13,7 @@ export interface HeaderProps {
   onProfilePress?: () => void;
   onNotificationsPress?: () => void;
   hasNotifications?: boolean;
+  notificationCount?: number;
 }
 
 export default function Header({
@@ -25,33 +22,114 @@ export default function Header({
   onProfilePress,
   onNotificationsPress,
   hasNotifications = true,
+  notificationCount = 0,
 }: HeaderProps) {
-  const badgeScale = useSharedValue(1);
+  const containerOpacity = useRef(new Animated.Value(0)).current;
+  const containerTranslateY = useRef(new Animated.Value(-10)).current;
+  const notificationsOpacity = useRef(new Animated.Value(0)).current;
+  const notificationsTranslateX = useRef(new Animated.Value(10)).current;
+  const profileOpacity = useRef(new Animated.Value(0)).current;
+  const profileTranslateX = useRef(new Animated.Value(10)).current;
+  const badgeScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(containerOpacity, {
+        toValue: 1,
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(containerTranslateY, {
+        toValue: 0,
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.sequence([
+        Animated.delay(60),
+        Animated.parallel([
+          Animated.timing(notificationsOpacity, {
+            toValue: 1,
+            duration: 180,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.timing(notificationsTranslateX, {
+            toValue: 0,
+            duration: 180,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+        ]),
+      ]),
+      Animated.sequence([
+        Animated.delay(110),
+        Animated.parallel([
+          Animated.timing(profileOpacity, {
+            toValue: 1,
+            duration: 180,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.timing(profileTranslateX, {
+            toValue: 0,
+            duration: 180,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+        ]),
+      ]),
+    ]).start();
+  }, [
+    containerOpacity,
+    containerTranslateY,
+    notificationsOpacity,
+    notificationsTranslateX,
+    profileOpacity,
+    profileTranslateX,
+  ]);
 
   useEffect(() => {
     if (!hasNotifications) {
-      badgeScale.value = 1;
+      badgeScale.stopAnimation();
+      badgeScale.setValue(1);
       return;
     }
 
-    badgeScale.value = withRepeat(
-      withSequence(
-        withTiming(1.18, { duration: 900 }),
-        withTiming(1, { duration: 900 }),
-      ),
-      -1,
-      false,
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(badgeScale, {
+          toValue: 1.14,
+          duration: 850,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(badgeScale, {
+          toValue: 1,
+          duration: 850,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
     );
-  }, [badgeScale, hasNotifications]);
 
-  const badgeAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: badgeScale.value }],
-  }));
+    loop.start();
+
+    return () => {
+      loop.stop();
+      badgeScale.stopAnimation();
+      badgeScale.setValue(1);
+    };
+  }, [badgeScale, hasNotifications]);
 
   return (
     <Animated.View
-      entering={FadeInDown.duration(260)}
       className="flex-row items-center justify-between border-b border-light-gray bg-primary px-5 py-4"
+      style={{
+        opacity: containerOpacity,
+        transform: [{ translateY: containerTranslateY }],
+      }}
     >
       <View className="flex-row items-center gap-3">
         {showMenuButton ? (
@@ -74,15 +152,22 @@ export default function Header({
           onPress={onNotificationsPress}
         >
           <Animated.View
-            entering={FadeInRight.delay(80).duration(240)}
             className="relative h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-primary"
+            style={{
+              opacity: notificationsOpacity,
+              transform: [{ translateX: notificationsTranslateX }],
+            }}
           >
             <Ionicons color="#FFFFFF" name="notifications-outline" size={20} />
             {hasNotifications ? (
               <Animated.View
-                style={badgeAnimatedStyle}
-                className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-accent"
-              />
+                className="absolute right-0.5 top-0.5 min-h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1"
+                style={{ transform: [{ scale: badgeScale }] }}
+              >
+                <Animated.Text className="font-heading text-[10px] text-white">
+                  {notificationCount > 99 ? '99+' : notificationCount}
+                </Animated.Text>
+              </Animated.View>
             ) : null}
           </Animated.View>
         </Pressable>
@@ -93,8 +178,11 @@ export default function Header({
           onPress={onProfilePress}
         >
           <Animated.View
-            entering={FadeInRight.delay(140).duration(240)}
             className="h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-accent"
+            style={{
+              opacity: profileOpacity,
+              transform: [{ translateX: profileTranslateX }],
+            }}
           >
             <Ionicons color="#FFFFFF" name="person-outline" size={20} />
           </Animated.View>

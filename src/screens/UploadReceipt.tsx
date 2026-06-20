@@ -1,5 +1,7 @@
+import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import Button from '../components/atoms/Button';
 import Card from '../components/atoms/Card';
@@ -12,53 +14,212 @@ import {
   FieldShell,
   cn,
 } from '../components/molecules/fieldShared';
+import { getMyCondominoDetail, reportPayment } from '../services/condomino';
+import { getErrorMessage } from '../services/error';
+import { formatCurrency } from '../services/mappers';
+import { queryKeys } from '../services/queryKeys';
+import type {
+  UnitDetailDto,
+  UploadReceiptFilePayload,
+} from '../services/types';
 
 interface UploadReceiptProps {
   onBack?: () => void;
-  onSubmit?: () => void;
+  onSubmitSuccess?: () => void;
 }
 
-interface ChargeItem {
-  id: string;
-  charge: string;
-  amount: number;
+const paymentMethodOptions = [{ label: 'Transferencia', value: 'TRANSFER' }];
+const allowedReceiptMimeTypes = [
+  'image/jpeg',
+  'image/png',
+  'application/pdf',
+] as const;
+const maxReceiptFileSize = 10 * 1024 * 1024;
+
+function normalizeReceiptMimeType(
+  mimeType?: string | null,
+  fileName?: string | null,
+): UploadReceiptFilePayload['mimeType'] | null {
+  if (mimeType === 'image/jpeg' || mimeType === 'image/png' || mimeType === 'application/pdf') {
+    return mimeType;
+  }
+
+  const normalizedName = fileName?.trim().toLowerCase() ?? '';
+
+  if (normalizedName.endsWith('.jpg') || normalizedName.endsWith('.jpeg')) {
+    return 'image/jpeg';
+  }
+
+  if (normalizedName.endsWith('.png')) {
+    return 'image/png';
+  }
+
+  if (normalizedName.endsWith('.pdf')) {
+    return 'application/pdf';
+  }
+
+  return null;
 }
 
-const chargeOptions: ChargeItem[] = [
-  { id: 'maintenance-jun', charge: 'Mantenimiento Junio 2026', amount: 120 },
-  { id: 'water-jun', charge: 'Agua Junio 2026', amount: 80 },
-  { id: 'fine-jun', charge: 'Multa estacionamiento', amount: 150 },
-];
+function receiptMimeTypeLabel(mimeType: UploadReceiptFilePayload['mimeType']) {
+  switch (mimeType) {
+    case 'image/jpeg':
+      return 'JPG';
+    case 'image/png':
+      return 'PNG';
+    default:
+      return 'PDF';
+  }
+}
 
-const paymentMethodOptions = [
-  { label: 'Transfer', value: 'transfer' },
-];
+function formatFileSize(size?: number | null) {
+  if (!size || size <= 0) {
+    return '';
+  }
 
-function formatCurrency(value: number) {
-  return `$${value.toFixed(2)}`;
+  if (size >= 1024 * 1024) {
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  return `${Math.max(1, Math.round(size / 1024))} KB`;
+}
+
+function getUnitBlockedChargeIds(unit: UnitDetailDto) {
+  const blockedChargeIds = new Set<number>();
+
+  unit.payments.forEach((payment) => {
+    if (payment.status !== 'PENDING_REVIEW') {
+      return;
+    }
+
+    payment.allocations.forEach((allocation) => {
+      if (allocation.chargeId) {
+        blockedChargeIds.add(allocation.chargeId);
+      }
+    });
+  });
+
+  return blockedChargeIds;
+}
+
+function hasAvailableCharge(unit: UnitDetailDto, blockedChargeIds: Set<number>) {
+  return unit.charges.some(
+    (charge) =>
+      charge.pendingAmount > 0 &&
+      charge.status !== 'PAID' &&
+      charge.status !== 'CANCELLED' &&
+      !blockedChargeIds.has(charge.id),
+  );
 }
 
 export default function UploadReceipt({
   onBack,
-  onSubmit,
+  onSubmitSuccess,
 }: UploadReceiptProps) {
+  const queryClient = useQueryClient();
+  const condominiumQuery = useQuery({
+    queryKey: queryKeys.condominiumDetail,
+    queryFn: getMyCondominoDetail,
+  });
+  const reportPaymentMutation = useMutation({
+    mutationFn: reportPayment,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.condominiumDetail }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboardSummary }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.notifications }),
+      ]);
+      onSubmitSuccess?.();
+    },
+  });
+
   const [paymentDate, setPaymentDate] = useState<Date | null>(new Date());
   const [reference, setReference] = useState('');
   const [trackingKey, setTrackingKey] = useState('');
-  const [uploadedFileName] = useState('');
   const [note, setNote] = useState('');
   const [observations, setObservations] = useState('');
-  const [selectedChargeIds, setSelectedChargeIds] = useState<string[]>([
-    chargeOptions[0].id,
-  ]);
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
+  const [selectedChargeIds, setSelectedChargeIds] = useState<string[]>([]);
+  const [selectedFile, setSelectedFile] =
+    useState<UploadReceiptFilePayload | null>(null);
   const [isChargesOpen, setIsChargesOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    if (!selectedUnitId && condominiumQuery.data?.units.length) {
+      setSelectedUnitId(String(condominiumQuery.data.units[0].id));
+    }
+  }, [condominiumQuery.data?.units, selectedUnitId]);
+
+  const unitOptions = useMemo(
+    () =>
+      (condominiumQuery.data?.units ?? []).map((unit) => ({
+        label: unit.houseNumber,
+        value: String(unit.id),
+      })),
+    [condominiumQuery.data?.units],
+  );
+
+  const selectedUnit = useMemo(
+    () =>
+      condominiumQuery.data?.units.find(
+        (unit) => String(unit.id) === selectedUnitId,
+      ) ?? null,
+    [condominiumQuery.data?.units, selectedUnitId],
+  );
+
+  const selectedUnitBlockedChargeIds = useMemo(
+    () => (selectedUnit ? getUnitBlockedChargeIds(selectedUnit) : new Set<number>()),
+    [selectedUnit],
+  );
+
+  const selectedUnitBlockedMessage = useMemo(() => {
+    if (!selectedUnit) {
+      return '';
+    }
+
+    if (
+      selectedUnitBlockedChargeIds.size > 0 &&
+      !hasAvailableCharge(selectedUnit, selectedUnitBlockedChargeIds)
+    ) {
+      return 'Los adeudos pendientes de esta casa ya tienen un comprobante en revisión.';
+    }
+
+    return '';
+  }, [selectedUnit, selectedUnitBlockedChargeIds]);
+
+  const chargeOptions = useMemo(
+    () =>
+      (selectedUnit?.charges ?? [])
+        .filter(
+          (charge) =>
+            charge.pendingAmount > 0 &&
+            charge.status !== 'PAID' &&
+            charge.status !== 'CANCELLED' &&
+            !selectedUnitBlockedChargeIds.has(charge.id),
+        )
+        .map((charge) => ({
+          id: String(charge.id),
+          charge: charge.concept,
+          amount: charge.pendingAmount,
+        })),
+    [selectedUnit?.charges, selectedUnitBlockedChargeIds],
+  );
+
+  useEffect(() => {
+    setSelectedChargeIds((currentSelection) =>
+      currentSelection.filter((chargeId) =>
+        chargeOptions.some((chargeOption) => chargeOption.id === chargeId),
+      ),
+    );
+  }, [chargeOptions]);
 
   const selectedCharges = useMemo(
     () =>
       chargeOptions.filter((chargeOption) =>
         selectedChargeIds.includes(chargeOption.id),
       ),
-    [selectedChargeIds],
+    [chargeOptions, selectedChargeIds],
   );
   const uploadAmount = useMemo(
     () =>
@@ -81,6 +242,53 @@ export default function UploadReceipt({
         : [...current, chargeId],
     );
   };
+
+  const pickReceiptFile = async () => {
+    setErrorMessage('');
+
+    const result = await DocumentPicker.getDocumentAsync({
+      type: [...allowedReceiptMimeTypes],
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+
+    if (result.canceled) {
+      return;
+    }
+
+    const asset = result.assets[0];
+
+    if (!asset) {
+      setErrorMessage('No se pudo leer el archivo seleccionado.');
+      return;
+    }
+
+    const mimeType = normalizeReceiptMimeType(asset.mimeType, asset.name);
+
+    if (!mimeType) {
+      setErrorMessage('Solo se permiten archivos JPG, PNG o PDF.');
+      return;
+    }
+
+    if (asset.size && asset.size > maxReceiptFileSize) {
+      setErrorMessage('El archivo supera el límite de 10 MB.');
+      return;
+    }
+
+    setSelectedFile({
+      uri: asset.uri,
+      name: asset.name,
+      mimeType,
+      size: asset.size,
+    });
+  };
+
+  const canSubmit =
+    !!selectedUnit &&
+    !!paymentDate &&
+    uploadAmount > 0 &&
+    !!selectedFile &&
+    !reportPaymentMutation.isPending;
 
   return (
     <>
@@ -105,137 +313,264 @@ export default function UploadReceipt({
 
         <Card width="full">
           <View className="gap-4">
-            <FieldShell
-              disabled
-              label="Comprobante por subir"
-              helperText="Se calcula automáticamente según los cargos seleccionados."
-            >
-              <View className={cn(FIELD_CONTROL_CLASS, 'justify-center')}>
-                <Text className="font-body-semibold text-base text-primary">
-                  {formatCurrency(uploadAmount)}
-                </Text>
-              </View>
-            </FieldShell>
-
-            <DatePickerField
-              label="Fecha de Pago"
-              value={paymentDate}
-              onChange={setPaymentDate}
-            />
-
-            <SelectField
-              disabled
-              label="Método"
-              options={paymentMethodOptions}
-              value="transfer"
-              onChange={() => undefined}
-            />
-
-            <InputField
-              label="Referencia"
-              placeholder="REF-2026-06-001"
-              value={reference}
-              onChangeText={setReference}
-            />
-
-            <InputField
-              label="Clave de Rastreo"
-              placeholder="547382910456"
-              value={trackingKey}
-              onChangeText={setTrackingKey}
-            />
-
-            <FieldShell
-              active={isChargesOpen}
-              helperText="Selecciona uno o más cargos para aplicar el pago."
-              label="Aplicar cargos"
-            >
-              <Pressable
-                accessibilityRole="button"
-                className={cn(
-                  FIELD_CONTROL_CLASS,
-                  'flex-row items-center justify-between gap-3',
+            {condominiumQuery.isLoading ? (
+              <Text className="font-body text-sm text-med-gray">
+                Cargando cargos del residente...
+              </Text>
+            ) : condominiumQuery.error ? (
+              <Text className="font-body text-sm text-danger">
+                {getErrorMessage(
+                  condominiumQuery.error,
+                  'No fue posible cargar la información de pago.',
                 )}
-                onPress={() => setIsChargesOpen(true)}
-              >
-                <Text className="flex-1 font-body text-base text-primary">
-                  {selectedChargesLabel}
-                </Text>
-                <Ionicons
-                  color="#6B7280"
-                  name={isChargesOpen ? 'chevron-up' : 'chevron-down'}
-                  size={20}
+              </Text>
+            ) : (
+              <>
+                <SelectField
+                  label="Casa"
+                  options={unitOptions}
+                  value={selectedUnitId}
+                  onChange={(value) => {
+                    setSelectedUnitId(value);
+                    setSelectedChargeIds([]);
+                    if (errorMessage) {
+                      setErrorMessage('');
+                    }
+                  }}
                 />
-              </Pressable>
-            </FieldShell>
 
-            {selectedCharges.length ? (
-              <View className="gap-2 rounded-xl border border-light-gray bg-[#F8F7FA] p-3">
-                {selectedCharges.map((selectedCharge) => (
-                  <View
-                    key={selectedCharge.id}
-                    className="flex-row items-center justify-between gap-3"
-                  >
-                    <Text className="flex-1 font-body text-sm text-primary">
-                      {selectedCharge.charge}
-                    </Text>
-                    <Text className="font-body-semibold text-sm text-primary">
-                      {formatCurrency(selectedCharge.amount)}
+                <FieldShell
+                  disabled
+                  label="Comprobante por subir"
+                  helperText="Se calcula automáticamente según los cargos seleccionados."
+                >
+                  <View className={cn(FIELD_CONTROL_CLASS, 'justify-center')}>
+                    <Text className="font-body-semibold text-base text-primary">
+                      {formatCurrency(uploadAmount)}
                     </Text>
                   </View>
-                ))}
-              </View>
-            ) : null}
+                </FieldShell>
 
-            <FieldShell
-              helperText="Adjunta el archivo del comprobante para enviarlo a revisión."
-              label="Archivo"
-            >
-              <Pressable
-                accessibilityRole="button"
-                className={cn(
-                  FIELD_CONTROL_CLASS,
-                  'flex-row items-center justify-between gap-3',
-                )}
-              >
-                <View className="flex-row items-center gap-3">
-                  <Ionicons color="#18052E" name="attach-outline" size={20} />
-                  <Text className="font-body text-base text-primary">
-                    {uploadedFileName || 'Seleccionar archivo'}
-                  </Text>
-                </View>
-                <Ionicons color="#6B7280" name="cloud-upload-outline" size={20} />
-              </Pressable>
-            </FieldShell>
-
-            <InputField
-              label="Nota"
-              placeholder="transferencia desde BBVA"
-              value={note}
-              onChangeText={setNote}
-            />
-
-            <FieldShell label="Observaciones">
-              <View className="min-h-[76px] justify-center">
-                <TextInput
-                  multiline
-                  numberOfLines={2}
-                  className="font-body text-base text-primary"
-                  placeholder="Observaciones adicionales"
-                  placeholderTextColor="#6B7280"
-                  selectionColor="#18052E"
-                  style={{ textAlignVertical: 'top' }}
-                  value={observations}
-                  onChangeText={setObservations}
+                <DatePickerField
+                  label="Fecha de Pago"
+                  value={paymentDate}
+                  onChange={setPaymentDate}
                 />
-              </View>
-            </FieldShell>
 
-            <Button
-              icon="cloud-upload-outline"
-              title="Enviar a revisión"
-              onPress={onSubmit}
-            />
+                <SelectField
+                  disabled
+                  label="Método"
+                  options={paymentMethodOptions}
+                  value="TRANSFER"
+                  onChange={() => undefined}
+                />
+
+                <InputField
+                  errorText={errorMessage}
+                  label="Referencia"
+                  placeholder="REF-2026-06-001"
+                  value={reference}
+                  onChangeText={(value) => {
+                    setReference(value);
+                    if (errorMessage) {
+                      setErrorMessage('');
+                    }
+                  }}
+                />
+
+                <InputField
+                  label="Clave de Rastreo"
+                  placeholder="547382910456"
+                  value={trackingKey}
+                  onChangeText={(value) => {
+                    setTrackingKey(value);
+                    if (errorMessage) {
+                      setErrorMessage('');
+                    }
+                  }}
+                />
+
+                <FieldShell
+                  active={isChargesOpen}
+                  helperText={
+                    selectedUnitBlockedMessage ||
+                    'Selecciona uno o más cargos para aplicar el pago.'
+                  }
+                  label="Aplicar cargos"
+                >
+                  <Pressable
+                    accessibilityRole="button"
+                    className={cn(
+                      FIELD_CONTROL_CLASS,
+                      'flex-row items-center justify-between gap-3',
+                    )}
+                    onPress={() => setIsChargesOpen(true)}
+                  >
+                    <Text className="flex-1 font-body text-base text-primary">
+                      {selectedChargesLabel}
+                    </Text>
+                    <Ionicons
+                      color="#6B7280"
+                      name={isChargesOpen ? 'chevron-up' : 'chevron-down'}
+                      size={20}
+                    />
+                  </Pressable>
+                </FieldShell>
+
+                {selectedCharges.length ? (
+                  <View className="gap-2 rounded-xl border border-light-gray bg-[#F8F7FA] p-3">
+                    {selectedCharges.map((selectedCharge) => (
+                      <View
+                        key={selectedCharge.id}
+                        className="flex-row items-center justify-between gap-3"
+                      >
+                        <Text className="flex-1 font-body text-sm text-primary">
+                          {selectedCharge.charge}
+                        </Text>
+                        <Text className="font-body-semibold text-sm text-primary">
+                          {formatCurrency(selectedCharge.amount)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+
+                <FieldShell
+                  active={!!selectedFile}
+                  helperText={
+                    selectedFile
+                      ? 'Archivo listo para enviarse con el comprobante.'
+                      : 'Selecciona un archivo JPG, PNG o PDF de hasta 10 MB.'
+                  }
+                  label="Archivo"
+                >
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => {
+                      void pickReceiptFile();
+                    }}
+                  >
+                    <View
+                      className={cn(
+                        FIELD_CONTROL_CLASS,
+                        'flex-row items-center justify-between gap-3',
+                      )}
+                    >
+                      <View className="flex-1 flex-row items-center gap-3">
+                        <Ionicons color="#18052E" name="attach-outline" size={20} />
+                        <View className="flex-1">
+                          <Text
+                            className="font-body text-base text-primary"
+                            numberOfLines={1}
+                          >
+                            {selectedFile?.name ?? 'Seleccionar archivo'}
+                          </Text>
+                          {selectedFile ? (
+                            <Text className="font-body text-sm text-med-gray">
+                              {receiptMimeTypeLabel(selectedFile.mimeType)}
+                              {selectedFile.size
+                                ? ` · ${formatFileSize(selectedFile.size)}`
+                                : ''}
+                            </Text>
+                          ) : null}
+                        </View>
+                      </View>
+                      <Ionicons
+                        color="#6B7280"
+                        name={
+                          selectedFile
+                            ? 'swap-horizontal-outline'
+                            : 'cloud-upload-outline'
+                        }
+                        size={20}
+                      />
+                    </View>
+                  </Pressable>
+                </FieldShell>
+
+                {selectedFile ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    className="self-start rounded-full border border-light-gray px-3 py-2"
+                    onPress={() => setSelectedFile(null)}
+                  >
+                    <Text className="font-body-semibold text-sm text-primary">
+                      Quitar archivo
+                    </Text>
+                  </Pressable>
+                ) : null}
+
+                <InputField
+                  label="Nota"
+                  placeholder="transferencia desde BBVA"
+                  value={note}
+                  onChangeText={setNote}
+                />
+
+                <FieldShell label="Observaciones">
+                  <View className="min-h-[76px] justify-center">
+                    <TextInput
+                      multiline
+                      numberOfLines={2}
+                      className="font-body text-base text-primary"
+                      placeholder="Observaciones adicionales"
+                      placeholderTextColor="#6B7280"
+                      selectionColor="#18052E"
+                      style={{ textAlignVertical: 'top' }}
+                      value={observations}
+                      onChangeText={setObservations}
+                    />
+                  </View>
+                </FieldShell>
+
+                <Button
+                  disabled={!canSubmit}
+                  icon="cloud-upload-outline"
+                  loading={reportPaymentMutation.isPending}
+                  title="Enviar a revisión"
+                  onPress={() => {
+                    if (!selectedUnit || !paymentDate || uploadAmount <= 0) {
+                      return;
+                    }
+
+                    if (!selectedFile) {
+                      setErrorMessage(
+                        'Selecciona un archivo JPG, PNG o PDF antes de enviar el comprobante.',
+                      );
+                      return;
+                    }
+
+                    reportPaymentMutation.mutate(
+                      {
+                        unitId: selectedUnit.id,
+                        amount: uploadAmount,
+                        paymentDate: paymentDate.toISOString(),
+                        method: 'TRANSFER',
+                        reference: reference.trim() || undefined,
+                        trackingKey: trackingKey.trim() || undefined,
+                        notes: note.trim() || undefined,
+                        receiptNotes: observations.trim() || undefined,
+                        allocations: selectedCharges.map((charge) => ({
+                          chargeId: Number(charge.id),
+                          amount: charge.amount,
+                        })),
+                        file: selectedFile,
+                      },
+                      {
+                        onError: (error) => {
+                          setErrorMessage(
+                            getErrorMessage(
+                              error,
+                              'No fue posible enviar el comprobante.',
+                            ),
+                          );
+                        },
+                      },
+                    );
+                  }}
+                />
+              </>
+            )}
           </View>
         </Card>
       </View>
@@ -255,46 +590,53 @@ export default function UploadReceipt({
         }
       >
         <View className="gap-3">
-          {chargeOptions.map((chargeOption) => {
-            const isSelected = selectedChargeIds.includes(chargeOption.id);
+          {chargeOptions.length ? (
+            chargeOptions.map((chargeOption) => {
+              const isSelected = selectedChargeIds.includes(chargeOption.id);
 
-            return (
-              <Pressable
-                key={chargeOption.id}
-                className={cn(
-                  'flex-row items-center justify-between gap-3 rounded-lg border px-4 py-3',
-                  isSelected
-                    ? 'border-primary bg-primary'
-                    : 'border-light-gray bg-[#F8F7FA]',
-                )}
-                onPress={() => toggleCharge(chargeOption.id)}
-              >
-                <View className="flex-1 gap-1">
-                  <Text
-                    className={cn(
-                      'font-body-semibold text-base',
-                      isSelected ? 'text-white' : 'text-primary',
-                    )}
-                  >
-                    {chargeOption.charge}
-                  </Text>
-                  <Text
-                    className={cn(
-                      'font-body text-sm',
-                      isSelected ? 'text-white/85' : 'text-med-gray',
-                    )}
-                  >
-                    {formatCurrency(chargeOption.amount)}
-                  </Text>
-                </View>
-                <Ionicons
-                  color={isSelected ? '#FFFFFF' : '#6B7280'}
-                  name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
-                  size={22}
-                />
-              </Pressable>
-            );
-          })}
+              return (
+                <Pressable
+                  key={chargeOption.id}
+                  className={cn(
+                    'flex-row items-center justify-between gap-3 rounded-lg border px-4 py-3',
+                    isSelected
+                      ? 'border-primary bg-primary'
+                      : 'border-light-gray bg-[#F8F7FA]',
+                  )}
+                  onPress={() => toggleCharge(chargeOption.id)}
+                >
+                  <View className="flex-1 gap-1">
+                    <Text
+                      className={cn(
+                        'font-body-semibold text-base',
+                        isSelected ? 'text-white' : 'text-primary',
+                      )}
+                    >
+                      {chargeOption.charge}
+                    </Text>
+                    <Text
+                      className={cn(
+                        'font-body text-sm',
+                        isSelected ? 'text-white/85' : 'text-med-gray',
+                      )}
+                    >
+                      {formatCurrency(chargeOption.amount)}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    color={isSelected ? '#FFFFFF' : '#6B7280'}
+                    name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={22}
+                  />
+                </Pressable>
+              );
+            })
+          ) : (
+            <Text className="font-body text-sm text-med-gray">
+              {selectedUnitBlockedMessage ||
+                'No hay adeudos pendientes disponibles para esta unidad.'}
+            </Text>
+          )}
         </View>
       </BottomSheet>
     </>

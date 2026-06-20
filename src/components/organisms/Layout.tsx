@@ -1,6 +1,7 @@
-import { ReactNode, useEffect, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
+  RefreshControl,
   ScrollView,
   View,
   useWindowDimensions,
@@ -12,13 +13,19 @@ import Sidebar, { SidebarItem } from './Sidebar';
 
 export interface LayoutProps {
   children: ReactNode;
+  contentKey?: string;
   onHomePress?: () => void;
   onAvisosPress?: () => void;
   onTicketsPress?: () => void;
   onProfilePress?: () => void;
   onNotificationsPress?: () => void;
+  onLogout?: () => void;
   activeSidebarItemKey?: string;
   activeNavbarItemKey?: string;
+  hasNotifications?: boolean;
+  notificationCount?: number;
+  refreshing?: boolean;
+  onRefresh?: () => void;
 }
 
 const sidebarItems: SidebarItem[] = [
@@ -47,19 +54,26 @@ const navbarItems: NavbarItem[] = [
 
 export default function Layout({
   children,
+  contentKey,
   onHomePress,
   onAvisosPress,
   onTicketsPress,
   onProfilePress,
   onNotificationsPress,
+  onLogout,
   activeSidebarItemKey,
   activeNavbarItemKey,
+  hasNotifications = true,
+  notificationCount = 0,
+  refreshing = false,
+  onRefresh,
 }: LayoutProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 960;
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeSidebarItem, setActiveSidebarItem] = useState(sidebarItems[0].key);
   const [activeNavbarItem, setActiveNavbarItem] = useState(navbarItems[0].key);
+  const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     if (activeSidebarItemKey) {
@@ -72,6 +86,13 @@ export default function Layout({
       setActiveNavbarItem(activeNavbarItemKey);
     }
   }, [activeNavbarItemKey]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({
+      y: 0,
+      animated: false,
+    });
+  }, [contentKey]);
 
   const shouldShowSidebar = isDesktop || isSidebarOpen;
   const contentWidthClass = useMemo(
@@ -99,6 +120,7 @@ export default function Layout({
               <Sidebar
                 activeItem={activeSidebarItem}
                 items={sidebarItems}
+                onLogout={onLogout}
                 onSelectItem={(key) => {
                   setActiveSidebarItem(key);
                   if (key === 'inicio') {
@@ -121,6 +143,8 @@ export default function Layout({
 
         <View className={`flex-1 ${contentWidthClass}`}>
           <Header
+            hasNotifications={hasNotifications}
+            notificationCount={notificationCount}
             onNotificationsPress={onNotificationsPress}
             onProfilePress={onProfilePress}
             showMenuButton={!isDesktop}
@@ -128,15 +152,23 @@ export default function Layout({
           />
 
           <ScrollView
+            ref={scrollRef}
             className="flex-1"
             contentContainerClassName="px-5 py-5"
+            refreshControl={
+              onRefresh ? (
+                <RefreshControl
+                  colors={['#18052E']}
+                  progressBackgroundColor="#FFFFFF"
+                  refreshing={refreshing}
+                  tintColor="#18052E"
+                  onRefresh={onRefresh}
+                />
+              ) : undefined
+            }
             showsVerticalScrollIndicator={false}
           >
             {children}
-
-
-
-           
           </ScrollView>
 
           {!isDesktop ? (

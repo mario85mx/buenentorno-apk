@@ -1,6 +1,17 @@
-export type TicketStatus = 'Abierto' | 'En proceso' | 'En espera' | 'Cerrado';
-export type TicketPriority = 'Alta' | 'Media' | 'Baja';
-export type TicketBadgeVariant = 'success' | 'danger' | 'warning';
+export type TicketStatus =
+  | 'Abierto'
+  | 'En proceso'
+  | 'En espera del condómino'
+  | 'Resuelto'
+  | 'Cerrado';
+export type TicketPriority = 'Urgente' | 'Alta' | 'Media' | 'Baja';
+export type TicketBadgeVariant =
+  | 'success'
+  | 'danger'
+  | 'warning'
+  | 'info'
+  | 'neutral'
+  | 'accent';
 
 export interface TicketMessage {
   id: string;
@@ -17,8 +28,11 @@ export interface Ticket {
   category: string;
   priority: TicketPriority;
   status: TicketStatus;
+  residentName: string;
   assignedTo: string;
+  createdAt: string;
   lastActivity: string;
+  messagesCount: number;
   messages: TicketMessage[];
 }
 
@@ -33,11 +47,16 @@ export interface NewTicketPayload {
 export const ticketStatusOptions = [
   { label: 'Abierto', value: 'Abierto' },
   { label: 'En proceso', value: 'En proceso' },
-  { label: 'En espera', value: 'En espera' },
+  {
+    label: 'En espera del condómino',
+    value: 'En espera del condómino',
+  },
+  { label: 'Resuelto', value: 'Resuelto' },
   { label: 'Cerrado', value: 'Cerrado' },
 ];
 
 export const ticketPriorityOptions = [
+  { label: 'Urgente', value: 'Urgente' },
   { label: 'Alta', value: 'Alta' },
   { label: 'Media', value: 'Media' },
   { label: 'Baja', value: 'Baja' },
@@ -65,8 +84,11 @@ export const initialTickets: Ticket[] = [
     category: 'Mantenimiento',
     priority: 'Alta',
     status: 'Abierto',
+    residentName: 'Residente',
     assignedTo: 'Sin asignar',
+    createdAt: '11/06/2026 09:20',
     lastActivity: '11/06/2026 09:20',
+    messagesCount: 1,
     messages: [
       {
         id: 'ticket-1-message-1',
@@ -84,8 +106,11 @@ export const initialTickets: Ticket[] = [
     category: 'Mantenimiento',
     priority: 'Media',
     status: 'En proceso',
+    residentName: 'Residente',
     assignedTo: 'Carlos Mendoza',
+    createdAt: '10/06/2026 18:32',
     lastActivity: '11/06/2026 08:45',
+    messagesCount: 2,
     messages: [
       {
         id: 'ticket-2-message-1',
@@ -103,83 +128,35 @@ export const initialTickets: Ticket[] = [
       },
     ],
   },
-  {
-    id: 'ticket-3',
-    subject: 'Solicitud de acceso para proveedor',
-    house: 'Casa 18',
-    category: 'Seguridad',
-    priority: 'Baja',
-    status: 'En espera',
-    assignedTo: 'Recepción',
-    lastActivity: '10/06/2026 16:10',
-    messages: [
-      {
-        id: 'ticket-3-message-1',
-        author: 'Residente',
-        body: 'Solicito registrar acceso para proveedor mañana a las 10:00 a.m.',
-        timestamp: '10/06/2026 15:40',
-        isResident: true,
-      },
-      {
-        id: 'ticket-3-message-2',
-        author: 'Administración',
-        body: 'Quedamos en espera del nombre completo y placa del vehículo.',
-        timestamp: '10/06/2026 16:10',
-        isResident: false,
-      },
-    ],
-  },
-  {
-    id: 'ticket-4',
-    subject: 'Aclaración de cargo extraordinario',
-    house: 'Casa 24',
-    category: 'Administración',
-    priority: 'Media',
-    status: 'Cerrado',
-    assignedTo: 'Ana López',
-    lastActivity: '09/06/2026 12:30',
-    messages: [
-      {
-        id: 'ticket-4-message-1',
-        author: 'Residente',
-        body: 'Necesito aclarar el cargo extraordinario reflejado en mi estado de cuenta.',
-        timestamp: '09/06/2026 10:05',
-        isResident: true,
-      },
-      {
-        id: 'ticket-4-message-2',
-        author: 'Administración',
-        body: 'Se revisó el cargo y ya se compartió el detalle correspondiente.',
-        timestamp: '09/06/2026 12:30',
-        isResident: false,
-      },
-    ],
-  },
 ];
 
 export function getTicketPriorityVariant(
   priority: TicketPriority,
 ): TicketBadgeVariant {
-  if (priority === 'Alta') {
+  if (priority === 'Urgente') {
     return 'danger';
   }
 
-  if (priority === 'Media') {
+  if (priority === 'Alta' || priority === 'Media') {
     return 'warning';
   }
 
-  return 'success';
+  return 'neutral';
 }
 
 export function getTicketStatusVariant(
   status: TicketStatus,
 ): TicketBadgeVariant {
-  if (status === 'Abierto') {
-    return 'danger';
+  if (status === 'Resuelto' || status === 'Cerrado') {
+    return 'success';
   }
 
-  if (status === 'Cerrado') {
-    return 'success';
+  if (status === 'En espera del condómino') {
+    return 'info';
+  }
+
+  if (status === 'En proceso') {
+    return 'accent';
   }
 
   return 'warning';

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image, Pressable, Text, View } from 'react-native';
 import Card from '../components/atoms/Card';
-import { noticeItems, type Notice } from './Avisos';
+import type { Notice } from '../services/viewModels';
 
 interface AvisoDetailProps {
   notice?: Notice | null;
@@ -9,7 +9,26 @@ interface AvisoDetailProps {
 }
 
 export default function AvisoDetail({ notice, onBack }: AvisoDetailProps) {
-  const currentNotice = notice ?? noticeItems[0];
+  if (!notice) {
+    return (
+      <View className="gap-5">
+        <Pressable
+          accessibilityRole="button"
+          className="flex-row items-center self-start rounded-full px-1 py-1"
+          onPress={onBack}
+        >
+          <Ionicons color="#18052E" name="chevron-back" size={20} />
+          <Text className="font-heading text-sm text-primary">Volver</Text>
+        </Pressable>
+
+        <Card width="full">
+          <Text className="font-body text-base text-med-gray">
+            No se encontró el aviso solicitado.
+          </Text>
+        </Card>
+      </View>
+    );
+  }
 
   return (
     <View className="gap-5">
@@ -35,10 +54,10 @@ export default function AvisoDetail({ notice, onBack }: AvisoDetailProps) {
         <View className="gap-5">
           <View className="gap-2">
             <Text className="font-heading text-2xl leading-8 text-primary">
-              {currentNotice.title}
+              {notice.title}
             </Text>
             <Text className="font-body text-sm text-med-gray">
-              {currentNotice.date}
+              {notice.date}
             </Text>
           </View>
 
@@ -47,19 +66,19 @@ export default function AvisoDetail({ notice, onBack }: AvisoDetailProps) {
               Publicado por
             </Text>
             <Text className="font-body-semibold text-base text-primary">
-              {currentNotice.publishedBy}
+              {notice.publishedBy}
             </Text>
           </View>
 
           <Image
-            accessibilityLabel={currentNotice.title}
+            accessibilityLabel={notice.title}
             className="h-56 w-full rounded-2xl"
             resizeMode="cover"
-            source={{ uri: currentNotice.imageUrl }}
+            source={{ uri: notice.imageUrl }}
           />
 
           <View className="gap-4">
-            {currentNotice.content.map((paragraph) => (
+            {notice.content.map((paragraph) => (
               <Text
                 key={paragraph}
                 className="font-body text-base leading-7 text-primary"

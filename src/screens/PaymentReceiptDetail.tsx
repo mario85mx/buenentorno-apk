@@ -1,27 +1,20 @@
+import * as FileSystem from 'expo-file-system/legacy';
+import {
+  copyAsync,
+  documentDirectory,
+  getContentUriAsync,
+} from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
-import { Pressable, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { Linking, Platform, Pressable, Text, View } from 'react-native';
 import Badge from '../components/atoms/Badge';
 import Button from '../components/atoms/Button';
 import Card from '../components/atoms/Card';
+import { getApiAccessToken } from '../services/api';
+import type { PaymentReceipt } from '../services/viewModels';
 
-type ReceiptStatus = 'Pendiente' | 'Validado';
-type BadgeVariant = 'warning' | 'success';
-
-export interface PaymentReceipt {
-  id: string;
-  type: string;
-  amount: string;
-  generated: string;
-  paymentDate: string;
-  dueDate: string;
-  method: string;
-  reference: string;
-  trackingKey: string;
-  status: ReceiptStatus;
-  review: string;
-  voucher: string;
-  badgeVariant: BadgeVariant;
-}
+export type { PaymentReceipt } from '../services/viewModels';
 
 export interface PaymentReceiptDetailProps {
   onBack?: () => void;
@@ -32,6 +25,8 @@ export default function PaymentReceiptDetail({
   onBack,
   receipt,
 }: PaymentReceiptDetailProps) {
+  const [isOpeningReceipt, setIsOpeningReceipt] = useState(false);
+  const [openReceiptError, setOpenReceiptError] = useState('');
   const currentReceipt: PaymentReceipt = receipt ?? {
     id: 'receipt-1',
     type: 'Pago de mantenimiento',
@@ -42,11 +37,120 @@ export default function PaymentReceiptDetail({
     method: 'Transferencia SPEI',
     reference: 'REC-2026-06-001',
     trackingKey: '547382910456',
-    status: 'Validado',
+    status: 'Pagado',
     review: 'Aprobado por administración',
     voucher: 'comprobante-junio-2026.pdf',
+    fileUrl: '',
+    mimeType: 'application/pdf',
     badgeVariant: 'success',
   };
+
+  const amountColor =
+    currentReceipt.status === 'Pagado'
+      ? 'text-success'
+      : currentReceipt.status === 'Rechazado' ||
+          currentReceipt.status === 'Cancelado'
+        ? 'text-danger'
+        : 'text-warning';
+
+  const receiptExtension = useMemo(() => {
+    const normalizedVoucher = currentReceipt.voucher.toLowerCase();
+
+    if (normalizedVoucher.endsWith('.pdf')) {
+      return 'pdf';
+    }
+
+    if (normalizedVoucher.endsWith('.png')) {
+      return 'png';
+    }
+
+    if (normalizedVoucher.endsWith('.jpg') || normalizedVoucher.endsWith('.jpeg')) {
+      return 'jpg';
+    }
+
+    if (currentReceipt.mimeType === 'image/png') {
+      return 'png';
+    }
+
+    if (currentReceipt.mimeType === 'image/jpeg') {
+      return 'jpg';
+    }
+
+    return 'pdf';
+  }, [currentReceipt.mimeType, currentReceipt.voucher]);
+
+  const handleOpenReceipt = useCallback(async () => {
+    if (!currentReceipt.fileUrl) {
+      setOpenReceiptError('Este comprobante no tiene un archivo disponible.');
+      return;
+    }
+
+    const accessToken = getApiAccessToken();
+
+    if (!accessToken) {
+      setOpenReceiptError('Tu sesión ya no es válida. Inicia sesión nuevamente.');
+      return;
+    }
+
+    if (!FileSystem.cacheDirectory) {
+      setOpenReceiptError('No hay almacenamiento temporal disponible en el dispositivo.');
+      return;
+    }
+
+    setIsOpeningReceipt(true);
+    setOpenReceiptError('');
+
+    const localFileUri =
+      `${FileSystem.cacheDirectory}receipt-${currentReceipt.id}-${Date.now()}.${receiptExtension}`;
+
+    try {
+      const result = await FileSystem.downloadAsync(currentReceipt.fileUrl, localFileUri, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      const canShare = await Sharing.isAvailableAsync();
+
+      if (!canShare) {
+        if (!documentDirectory) {
+          setOpenReceiptError('No hay almacenamiento disponible para abrir el comprobante.');
+          return;
+        }
+
+        const exportedUri =
+          `${documentDirectory}comprobante-${currentReceipt.id}.${receiptExtension}`;
+
+        await copyAsync({
+          from: result.uri,
+          to: exportedUri,
+        });
+
+        const openableUri =
+          Platform.OS === 'android'
+            ? await getContentUriAsync(exportedUri)
+            : exportedUri;
+
+        await Linking.openURL(openableUri);
+        return;
+      }
+
+      await Sharing.shareAsync(result.uri, {
+        dialogTitle: currentReceipt.voucher,
+        mimeType: currentReceipt.mimeType ?? undefined,
+      });
+    } catch {
+      setOpenReceiptError('No se pudo abrir el comprobante.');
+    } finally {
+      setIsOpeningReceipt(false);
+    }
+  }, [
+    currentReceipt.fileUrl,
+    currentReceipt.id,
+    currentReceipt.mimeType,
+    currentReceipt.voucher,
+    receiptExtension,
+  ]);
 
   const detailRows = [
     { label: 'Tipos', value: currentReceipt.type },
@@ -99,7 +203,7 @@ export default function PaymentReceiptDetail({
                 label={currentReceipt.status}
                 variant={currentReceipt.badgeVariant}
               />
-              <Text className="font-heading text-2xl text-success">
+              <Text className={`font-heading text-2xl ${amountColor}`}>
                 {currentReceipt.amount}
               </Text>
             </View>
@@ -122,7 +226,12 @@ export default function PaymentReceiptDetail({
           </View>
 
           <View className="gap-3">
-            <Button>
+            {openReceiptError ? (
+              <Text className="font-body text-sm text-danger">
+                {openReceiptError}
+              </Text>
+            ) : null}
+            <Button loading={isOpeningReceipt} onPress={() => void handleOpenReceipt()}>
               <>
                 <FontAwesome color="#FFFFFF" name="eye" size={18} />
                 <Text className="font-body-semibold text-base text-white">

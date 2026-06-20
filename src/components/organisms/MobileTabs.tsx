@@ -1,4 +1,4 @@
-import { ReactNode, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 export interface MobileTabItem {
@@ -24,6 +24,10 @@ export default function MobileTabs({
 }: MobileTabsProps) {
   const fallbackKey = items[0]?.key;
   const [activeKey, setActiveKey] = useState(defaultActiveKey ?? fallbackKey);
+
+  useEffect(() => {
+    setActiveKey(defaultActiveKey ?? fallbackKey);
+  }, [defaultActiveKey, fallbackKey]);
 
   const activeItem = useMemo(
     () => items.find((item) => item.key === activeKey) ?? items[0],

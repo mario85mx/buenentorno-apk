@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import Badge from '../components/atoms/Badge';
@@ -10,42 +11,102 @@ import {
   FieldShell,
   cn,
 } from '../components/molecules/fieldShared';
-import {
-  Ticket,
-  TicketStatus,
-  getTicketPriorityVariant,
-  getTicketStatusVariant,
-} from './ticketsData';
+import { getErrorMessage } from '../services/error';
+import { mapTicketDetailToViewModel } from '../services/mappers';
+import { queryKeys } from '../services/queryKeys';
+import { addTicketMessage, getTicket } from '../services/tickets';
+import { getTicketPriorityVariant, getTicketStatusVariant } from './ticketsData';
 
 interface TicketDetailProps {
-  ticket?: Ticket | null;
+  ticketId?: string | null;
   onBack?: () => void;
-  onAddMessage?: (ticketId: string, message: string) => void;
-  onUpdateStatus?: (ticketId: string, status: TicketStatus) => void;
 }
 
-export default function TicketDetail({
-  ticket,
-  onBack,
-  onAddMessage,
-  onUpdateStatus,
-}: TicketDetailProps) {
+export default function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
   const [draftMessage, setDraftMessage] = useState('');
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [feedbackTone, setFeedbackTone] = useState<'success' | 'danger'>(
+    'success',
+  );
+  const queryClient = useQueryClient();
+  const numericTicketId = Number(ticketId);
 
+  const ticketQuery = useQuery({
+    queryKey: queryKeys.ticketDetail(ticketId ?? 'unknown'),
+    queryFn: () => getTicket(numericTicketId),
+    enabled: Number.isFinite(numericTicketId),
+    select: mapTicketDetailToViewModel,
+  });
+
+  const addMessageMutation = useMutation({
+    mutationFn: (message: string) =>
+      addTicketMessage(numericTicketId, { message }),
+    onSuccess: async () => {
+      setDraftMessage('');
+      setFeedbackTone('success');
+      setFeedbackMessage('Mensaje enviado.');
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.ticketDetail(ticketId ?? 'unknown'),
+        }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.tickets }),
+      ]);
+    },
+  });
+
+  const ticket = ticketQuery.data;
   const detailRows = useMemo(
     () =>
       ticket
         ? [
             { label: 'Asunto', value: ticket.subject },
+            { label: 'Categoría', value: ticket.category },
+            { label: 'Condómino', value: ticket.residentName },
             { label: 'Casa', value: ticket.house },
             { label: 'Prioridad', value: ticket.priority },
             { label: 'Estatus', value: ticket.status },
             { label: 'Asignado', value: ticket.assignedTo },
+            { label: 'Creado', value: ticket.createdAt },
+            { label: 'Mensajes', value: String(ticket.messagesCount) },
             { label: 'Última actividad', value: ticket.lastActivity },
           ]
         : [],
     [ticket],
   );
+
+  if (ticketQuery.isLoading) {
+    return (
+      <Card width="full">
+        <Text className="font-body text-base text-med-gray">
+          Cargando detalle del ticket...
+        </Text>
+      </Card>
+    );
+  }
+
+  if (ticketQuery.error) {
+    return (
+      <View className="gap-5">
+        <Pressable
+          accessibilityRole="button"
+          className="flex-row items-center self-start rounded-full px-1 py-1"
+          onPress={onBack}
+        >
+          <Ionicons color="#18052E" name="chevron-back" size={20} />
+          <Text className="font-heading text-sm text-primary">Volver</Text>
+        </Pressable>
+
+        <Card width="full">
+          <Text className="font-body text-base text-danger">
+            {getErrorMessage(
+              ticketQuery.error,
+              'No fue posible cargar el ticket solicitado.',
+            )}
+          </Text>
+        </Card>
+      </View>
+    );
+  }
 
   if (!ticket) {
     return (
@@ -163,7 +224,7 @@ export default function TicketDetail({
           </View>
 
           <View className="gap-3">
-            <Text className="font-heading text-lg text-primary">Acciones</Text>
+            <Text className="font-heading text-lg text-primary">Responder</Text>
 
             <FieldShell label="Nuevo mensaje">
               <TextInput
@@ -174,7 +235,12 @@ export default function TicketDetail({
                 selectionColor="#18052E"
                 textAlignVertical="top"
                 value={draftMessage}
-                onChangeText={setDraftMessage}
+                onChangeText={(value) => {
+                  setDraftMessage(value);
+                  if (feedbackMessage) {
+                    setFeedbackMessage('');
+                  }
+                }}
                 className={cn(
                   FIELD_INPUT_CLASS,
                   FIELD_PLACEHOLDER_CLASS,
@@ -183,10 +249,21 @@ export default function TicketDetail({
               />
             </FieldShell>
 
+            {feedbackMessage ? (
+              <Text
+                className={`font-body text-sm ${
+                  feedbackTone === 'success' ? 'text-success' : 'text-danger'
+                }`}
+              >
+                {feedbackMessage}
+              </Text>
+            ) : null}
+
             <Button
               icon="send-outline"
               title="Enviar mensaje"
               disabled={!draftMessage.trim()}
+              loading={addMessageMutation.isPending}
               onPress={() => {
                 const nextMessage = draftMessage.trim();
 
@@ -194,40 +271,19 @@ export default function TicketDetail({
                   return;
                 }
 
-                onAddMessage?.(ticket.id, nextMessage);
-                setDraftMessage('');
+                addMessageMutation.mutate(nextMessage, {
+                  onError: (error) => {
+                    setFeedbackTone('danger');
+                    setFeedbackMessage(
+                      getErrorMessage(
+                        error,
+                        'No fue posible enviar el mensaje.',
+                      ),
+                    );
+                  },
+                });
               }}
             />
-
-            {ticket.status !== 'En proceso' && ticket.status !== 'Cerrado' ? (
-              <Button
-                title="Marcar en proceso"
-                variant="secondary"
-                onPress={() => onUpdateStatus?.(ticket.id, 'En proceso')}
-              />
-            ) : null}
-
-            {ticket.status !== 'En espera' && ticket.status !== 'Cerrado' ? (
-              <Button
-                title="Poner en espera"
-                variant="secondary"
-                onPress={() => onUpdateStatus?.(ticket.id, 'En espera')}
-              />
-            ) : null}
-
-            {ticket.status !== 'Cerrado' ? (
-              <Button
-                title="Cerrar ticket"
-                variant="danger"
-                onPress={() => onUpdateStatus?.(ticket.id, 'Cerrado')}
-              />
-            ) : (
-              <Button
-                title="Reabrir ticket"
-                variant="secondary"
-                onPress={() => onUpdateStatus?.(ticket.id, 'Abierto')}
-              />
-            )}
           </View>
         </View>
       </Card>

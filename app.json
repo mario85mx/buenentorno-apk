@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "buenentorno-app",
+    "name": "Buen Entorno",
     "slug": "buenentorno-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -23,7 +23,6 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router",
       "expo-font"
     ]
   }

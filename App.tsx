@@ -7,283 +7,663 @@ import {
   NunitoSans_400Regular,
   NunitoSans_600SemiBold,
 } from '@expo-google-fonts/nunito-sans';
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
+import { NavigationContainer } from '@react-navigation/native';
+import {
+  createNativeStackNavigator,
+  type NativeStackNavigationProp,
+} from '@react-navigation/native-stack';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
-import { Fragment, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Layout from './src/components/organisms/Layout';
 import Account from './src/screens/Account';
 import AvisoDetail from './src/screens/AvisoDetail';
 import Avisos from './src/screens/Avisos';
 import Home from './src/screens/Home';
+import Login from './src/screens/Login';
 import NewTicket from './src/screens/NewTicket';
 import Notifications from './src/screens/Notifications';
 import PaymentReceiptDetail from './src/screens/PaymentReceiptDetail';
 import PaymentTransactionDetail from './src/screens/PaymentTransactionDetail';
+import Recovery from './src/screens/Recovery';
 import ReceiptSubmissionConfirmation from './src/screens/ReceiptSubmissionConfirmation';
 import TicketDetail from './src/screens/TicketDetail';
 import Tickets from './src/screens/Tickets';
 import UploadReceipt from './src/screens/UploadReceipt';
-import type { Notice } from './src/screens/Avisos';
-import type { PaymentReceipt } from './src/screens/PaymentReceiptDetail';
-import type { PaymentTransaction } from './src/screens/PaymentTransactionDetail';
+import { setApiAccessToken } from './src/services/api';
+import { forgotPassword, getMe, login } from './src/services/auth';
+import { getNotifications } from './src/services/condomino';
+import { isUnauthorizedError } from './src/services/error';
 import {
-  initialTickets,
-  type NewTicketPayload,
-  type Ticket,
-  type TicketStatus,
-} from './src/screens/ticketsData';
+  mapNoticeDtoToViewModel,
+} from './src/services/mappers';
+import { getNotice } from './src/services/notices';
+import { queryKeys } from './src/services/queryKeys';
+import {
+  clearStoredSession,
+  loadNotificationSeenAt,
+  loadStoredSession,
+  storeNotificationSeenAt,
+  storeSession,
+} from './src/services/storage';
+import type { AuthResponse, LoginPayload } from './src/services/types';
+import type {
+  Notice,
+  NotificationViewModel,
+  PaymentReceipt,
+  PaymentTransaction,
+} from './src/services/viewModels';
 
-type ScreenKey =
+type RootRouteName =
   | 'home'
   | 'account'
-  | 'payment-transaction-detail'
-  | 'payment-receipt-detail'
-  | 'upload-receipt'
-  | 'receipt-submission-confirmation'
   | 'notifications'
   | 'avisos'
-  | 'aviso-detail'
-  | 'tickets'
-  | 'ticket-detail'
-  | 'new-ticket';
+  | 'tickets';
 
-function formatTicketTimestamp() {
-  const date = new Date();
-  const pad = (value: number) => value.toString().padStart(2, '0');
+type AppStackParamList = {
+  home: { tab?: 'movimientos' | 'comprobantes' } | undefined;
+  account: undefined;
+  notifications: undefined;
+  avisos: undefined;
+  tickets: undefined;
+  'payment-transaction-detail': { transaction: PaymentTransaction };
+  'payment-receipt-detail': { receipt: PaymentReceipt };
+  'upload-receipt': undefined;
+  'receipt-submission-confirmation': undefined;
+  'aviso-detail': { notice: Notice };
+  'ticket-detail': { ticketId: string };
+  'new-ticket': undefined;
+};
 
-  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+const Stack = createNativeStackNavigator<AppStackParamList>();
+
+function getActiveMenuKey(routeName: RootRouteName) {
+  if (routeName === 'avisos') {
+    return 'avisos';
+  }
+
+  if (routeName === 'tickets') {
+    return 'tickets';
+  }
+
+  return 'inicio';
+}
+
+function AppShell() {
+  const [session, setSession] = useState<AuthResponse | null>(null);
+  const [authScreen, setAuthScreen] = useState<'login' | 'recovery'>('login');
+  const [isSessionReady, setIsSessionReady] = useState(false);
+  const [notificationsSeenAt, setNotificationsSeenAt] = useState<string | null>(null);
+  const [isHomeRefreshing, setIsHomeRefreshing] = useState(false);
+  const isAuthenticated = !!session?.accessToken;
+  const queryClient = useQueryClient();
+
+  const handleLogout = useCallback(async () => {
+    setApiAccessToken(null);
+    setSession(null);
+    await clearStoredSession();
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void loadStoredSession()
+      .then((storedSession) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setSession(storedSession);
+        setApiAccessToken(storedSession?.accessToken ?? null);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsSessionReady(true);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const meQuery = useQuery({
+    queryKey: queryKeys.me,
+    queryFn: getMe,
+    enabled: isSessionReady && isAuthenticated,
+    retry: false,
+  });
+
+  const notificationsQuery = useQuery({
+    queryKey: queryKeys.notifications,
+    queryFn: getNotifications,
+    enabled: isSessionReady && isAuthenticated,
+    staleTime: 30_000,
+  });
+
+  useEffect(() => {
+    if (!meQuery.data || !session) {
+      return;
+    }
+
+    setSession((currentSession) => {
+      if (!currentSession) {
+        return currentSession;
+      }
+
+      const sameUser =
+        JSON.stringify(currentSession.user) === JSON.stringify(meQuery.data);
+
+      if (sameUser) {
+        return currentSession;
+      }
+
+      const nextSession = { ...currentSession, user: meQuery.data };
+      void storeSession(nextSession);
+      return nextSession;
+    });
+  }, [meQuery.data, session?.accessToken]);
+
+  useEffect(() => {
+    if (meQuery.error && isUnauthorizedError(meQuery.error)) {
+      void handleLogout();
+      setAuthScreen('login');
+    }
+  }, [handleLogout, meQuery.error]);
+
+  useEffect(() => {
+    const userId = session?.user.id;
+
+    if (!userId) {
+      setNotificationsSeenAt(null);
+      return;
+    }
+
+    void loadNotificationSeenAt(userId).then((seenAt) => {
+      setNotificationsSeenAt(seenAt);
+    });
+  }, [session?.user.id]);
+
+  const unreadNotificationsCount = useMemo(() => {
+    const notifications = notificationsQuery.data ?? [];
+
+    if (!notifications.length) {
+      return 0;
+    }
+
+    if (!notificationsSeenAt) {
+      return notifications.length;
+    }
+
+    const seenAtTime = new Date(notificationsSeenAt).getTime();
+
+    if (Number.isNaN(seenAtTime)) {
+      return notifications.length;
+    }
+
+    return notifications.filter((notification) => {
+      const createdAtTime = new Date(notification.createdAt).getTime();
+
+      if (Number.isNaN(createdAtTime)) {
+        return true;
+      }
+
+      return createdAtTime > seenAtTime;
+    }).length;
+  }, [notificationsQuery.data, notificationsSeenAt]);
+
+  const markNotificationsAsSeen = useCallback(async () => {
+    const userId = session?.user.id;
+    const notifications = notificationsQuery.data;
+
+    if (!userId || !notifications?.length) {
+      return;
+    }
+
+    const latestCreatedAt = notifications.reduce((latest, notification) =>
+      notification.createdAt > latest ? notification.createdAt : latest,
+    notifications[0].createdAt);
+
+    setNotificationsSeenAt(latestCreatedAt);
+    await storeNotificationSeenAt(userId, latestCreatedAt);
+  }, [notificationsQuery.data, session?.user.id]);
+
+  const openHomeTab = useCallback(
+    (
+      navigation: NativeStackNavigationProp<AppStackParamList>,
+      tab: 'movimientos' | 'comprobantes',
+    ) => {
+      navigation.replace('home', { tab });
+    },
+    [],
+  );
+
+  const handleOpenNotification = useCallback(
+    async (
+      navigation: NativeStackNavigationProp<AppStackParamList>,
+      notification: NotificationViewModel,
+    ) => {
+      await markNotificationsAsSeen();
+
+      if (notification.type === 'NOTICE') {
+        const hrefMatch = notification.href?.match(/\/avisos\/(\d+)/);
+
+        if (hrefMatch) {
+          const noticeId = Number(hrefMatch[1]);
+
+          if (!Number.isNaN(noticeId)) {
+            try {
+              const notice = await getNotice(noticeId);
+              navigation.navigate('aviso-detail', {
+                notice: mapNoticeDtoToViewModel(notice),
+              });
+              return;
+            } catch {
+              navigation.replace('avisos');
+              return;
+            }
+          }
+        }
+
+        navigation.replace('avisos');
+        return;
+      }
+
+      if (notification.type === 'NEW_CHARGE') {
+        openHomeTab(navigation, 'movimientos');
+        return;
+      }
+
+      if (
+        notification.type === 'PAYMENT_APPROVED' ||
+        notification.type === 'PAYMENT_REJECTED' ||
+        notification.type === 'PAYMENT_REVIEW'
+      ) {
+        openHomeTab(navigation, 'comprobantes');
+        return;
+      }
+
+      navigation.replace('home');
+    },
+    [markNotificationsAsSeen, openHomeTab],
+  );
+
+  const handleLogin = useCallback(async (credentials: LoginPayload) => {
+    const nextSession = await login(credentials);
+    setApiAccessToken(nextSession.accessToken);
+    setSession(nextSession);
+    await storeSession(nextSession);
+  }, []);
+
+  const handleHomeRefresh = useCallback(async () => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    setIsHomeRefreshing(true);
+
+    try {
+      await Promise.all([
+        queryClient.refetchQueries({
+          queryKey: queryKeys.condominiumDetail,
+          exact: true,
+        }),
+        queryClient.refetchQueries({
+          queryKey: queryKeys.dashboardSummary,
+          exact: true,
+        }),
+        queryClient.refetchQueries({
+          queryKey: queryKeys.notifications,
+          exact: true,
+        }),
+        queryClient.refetchQueries({
+          queryKey: queryKeys.me,
+          exact: true,
+        }),
+      ]);
+    } finally {
+      setIsHomeRefreshing(false);
+    }
+  }, [isAuthenticated, queryClient]);
+
+  const handleForgotPassword = useCallback(async (email: string) => {
+    return forgotPassword({ email });
+  }, []);
+
+  const renderLayout = useCallback(
+    (
+      navigation: NativeStackNavigationProp<AppStackParamList>,
+      routeName: RootRouteName,
+      contentKey: string,
+      content: React.ReactNode,
+      options?: Pick<React.ComponentProps<typeof Layout>, 'onRefresh' | 'refreshing'>,
+    ) => {
+      const activeMenuKey = getActiveMenuKey(routeName);
+
+      const replaceRoot = (target: RootRouteName) => {
+        if (routeName === target) {
+          return;
+        }
+
+        navigation.replace(target);
+      };
+
+      return (
+        <Layout
+          activeNavbarItemKey={activeMenuKey}
+          activeSidebarItemKey={activeMenuKey}
+          contentKey={contentKey}
+          hasNotifications={unreadNotificationsCount > 0}
+          notificationCount={unreadNotificationsCount}
+          onAvisosPress={() => replaceRoot('avisos')}
+          onHomePress={() => replaceRoot('home')}
+          onNotificationsPress={() => {
+            void markNotificationsAsSeen();
+            replaceRoot('notifications');
+          }}
+          onLogout={() => {
+            void handleLogout();
+            setAuthScreen('login');
+          }}
+          onProfilePress={() => replaceRoot('account')}
+          onTicketsPress={() => replaceRoot('tickets')}
+          onRefresh={options?.onRefresh}
+          refreshing={options?.refreshing}
+        >
+          {content}
+        </Layout>
+      );
+    },
+    [handleLogout, markNotificationsAsSeen, unreadNotificationsCount],
+  );
+
+  const authContent = useMemo(
+    () =>
+      authScreen === 'recovery' ? (
+        <Recovery
+          onBack={() => setAuthScreen('login')}
+          onSubmit={handleForgotPassword}
+        />
+      ) : (
+        <Login
+          onLogin={handleLogin}
+          onOpenRecovery={() => setAuthScreen('recovery')}
+        />
+      ),
+    [authScreen, handleForgotPassword, handleLogin],
+  );
+
+  if (!isSessionReady) {
+    return null;
+  }
+
+  if (meQuery.error && !isUnauthorizedError(meQuery.error)) {
+    return authContent;
+  }
+
+  return (
+    <>
+      {isAuthenticated ? (
+        <NavigationContainer>
+          <Stack.Navigator
+            initialRouteName="home"
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: '#F6F3FA' },
+              freezeOnBlur: false,
+              animation: 'fade',
+            }}
+          >
+            <Stack.Screen name="home">
+              {({ navigation, route }) =>
+                renderLayout(
+                  navigation,
+                  'home',
+                  route.key,
+                  <Home
+                    initialTab={route.params?.tab}
+                    onOpenPaymentTransactionDetail={(transaction) =>
+                      navigation.navigate('payment-transaction-detail', {
+                        transaction,
+                      })
+                    }
+                    onOpenPaymentReceiptDetail={(receipt) =>
+                      navigation.navigate('payment-receipt-detail', {
+                        receipt,
+                      })
+                    }
+                    onOpenUploadReceipt={() =>
+                      navigation.navigate('upload-receipt')
+                    }
+                  />,
+                  {
+                    onRefresh: () => {
+                      void handleHomeRefresh();
+                    },
+                    refreshing: isHomeRefreshing,
+                  },
+                )
+              }
+            </Stack.Screen>
+
+            <Stack.Screen name="account">
+              {({ navigation, route }) =>
+                renderLayout(navigation, 'account', route.key, <Account />)
+              }
+            </Stack.Screen>
+
+            <Stack.Screen name="notifications">
+              {({ navigation, route }) =>
+                renderLayout(
+                  navigation,
+                  'notifications',
+                  route.key,
+                  <Notifications
+                    onBack={() => navigation.replace('home')}
+                    onMarkAsSeen={() => {
+                      void markNotificationsAsSeen();
+                    }}
+                    onOpenNotification={(notification) => {
+                      void handleOpenNotification(navigation, notification);
+                    }}
+                  />,
+                )
+              }
+            </Stack.Screen>
+
+            <Stack.Screen name="avisos">
+              {({ navigation, route }) =>
+                renderLayout(
+                  navigation,
+                  'avisos',
+                  route.key,
+                  <Avisos
+                    onOpenNoticeDetail={(notice) =>
+                      navigation.navigate('aviso-detail', { notice })
+                    }
+                  />,
+                )
+              }
+            </Stack.Screen>
+
+            <Stack.Screen name="tickets">
+              {({ navigation, route }) =>
+                renderLayout(
+                  navigation,
+                  'tickets',
+                  route.key,
+                  <Tickets
+                    onOpenNewTicket={() => navigation.navigate('new-ticket')}
+                    onOpenTicketDetail={(ticket) =>
+                      navigation.navigate('ticket-detail', {
+                        ticketId: ticket.id,
+                      })
+                    }
+                  />,
+                )
+              }
+            </Stack.Screen>
+
+            <Stack.Screen
+              name="payment-transaction-detail"
+              options={{ animation: 'slide_from_right' }}
+            >
+              {({ navigation, route }) =>
+                renderLayout(
+                  navigation,
+                  'home',
+                  route.key,
+                  <PaymentTransactionDetail
+                    transaction={route.params.transaction}
+                    onBack={() => navigation.goBack()}
+                  />,
+                )
+              }
+            </Stack.Screen>
+
+            <Stack.Screen
+              name="payment-receipt-detail"
+              options={{ animation: 'slide_from_right' }}
+            >
+              {({ navigation, route }) =>
+                renderLayout(
+                  navigation,
+                  'home',
+                  route.key,
+                  <PaymentReceiptDetail
+                    receipt={route.params.receipt}
+                    onBack={() => navigation.goBack()}
+                  />,
+                )
+              }
+            </Stack.Screen>
+
+            <Stack.Screen
+              name="upload-receipt"
+              options={{ animation: 'slide_from_right' }}
+            >
+              {({ navigation, route }) =>
+                renderLayout(
+                  navigation,
+                  'home',
+                  route.key,
+                  <UploadReceipt
+                    onBack={() => navigation.goBack()}
+                    onSubmitSuccess={() =>
+                      navigation.replace('receipt-submission-confirmation')
+                    }
+                  />,
+                )
+              }
+            </Stack.Screen>
+
+            <Stack.Screen
+              name="receipt-submission-confirmation"
+              options={{ animation: 'slide_from_right' }}
+            >
+              {({ navigation, route }) =>
+                renderLayout(
+                  navigation,
+                  'home',
+                  route.key,
+                  <ReceiptSubmissionConfirmation
+                    onBackHome={() => navigation.replace('home')}
+                    onUploadAnother={() =>
+                      navigation.replace('upload-receipt')
+                    }
+                  />,
+                )
+              }
+            </Stack.Screen>
+
+            <Stack.Screen
+              name="aviso-detail"
+              options={{ animation: 'slide_from_right' }}
+            >
+              {({ navigation, route }) =>
+                renderLayout(
+                  navigation,
+                  'avisos',
+                  route.key,
+                  <AvisoDetail
+                    notice={route.params.notice}
+                    onBack={() => navigation.goBack()}
+                  />,
+                )
+              }
+            </Stack.Screen>
+
+            <Stack.Screen
+              name="ticket-detail"
+              options={{ animation: 'slide_from_right' }}
+            >
+              {({ navigation, route }) =>
+                renderLayout(
+                  navigation,
+                  'tickets',
+                  route.key,
+                  <TicketDetail
+                    ticketId={route.params.ticketId}
+                    onBack={() => navigation.goBack()}
+                  />,
+                )
+              }
+            </Stack.Screen>
+
+            <Stack.Screen
+              name="new-ticket"
+              options={{ animation: 'slide_from_right' }}
+            >
+              {({ navigation, route }) =>
+                renderLayout(
+                  navigation,
+                  'tickets',
+                  route.key,
+                  <NewTicket
+                    onBack={() => navigation.goBack()}
+                    onCreated={(ticketId) => {
+                      navigation.replace('ticket-detail', { ticketId });
+                    }}
+                  />,
+                )
+              }
+            </Stack.Screen>
+          </Stack.Navigator>
+        </NavigationContainer>
+      ) : (
+        authContent
+      )}
+      <StatusBar style={isAuthenticated ? 'dark' : 'light'} />
+    </>
+  );
 }
 
 export default function App() {
-  const [activeScreen, setActiveScreen] = useState<ScreenKey>('home');
-  const [selectedTransaction, setSelectedTransaction] =
-    useState<PaymentTransaction | null>(null);
-  const [selectedReceipt, setSelectedReceipt] = useState<PaymentReceipt | null>(
-    null,
-  );
-  const [selectedNotice, setSelectedNotice] = useState<Notice | null>(null);
-  const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
-  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [fontsLoaded] = useFonts({
     Montserrat_400Regular,
     Montserrat_700Bold,
     NunitoSans_400Regular,
     NunitoSans_600SemiBold,
   });
-  const selectedTicket =
-    tickets.find((ticket) => ticket.id === selectedTicketId) ?? null;
-
-  const handleCreateTicket = (payload: NewTicketPayload) => {
-    const timestamp = formatTicketTimestamp();
-    const ticketId = `ticket-${Date.now()}`;
-    const nextTicket: Ticket = {
-      id: ticketId,
-      subject: payload.subject,
-      house: payload.house,
-      category: payload.category,
-      priority: payload.priority,
-      status: 'Abierto',
-      assignedTo: 'Sin asignar',
-      lastActivity: timestamp,
-      messages: [
-        {
-          id: `${ticketId}-message-1`,
-          author: 'Residente',
-          body: payload.initialMessage,
-          timestamp,
-          isResident: true,
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 15_000,
+            retry: false,
+          },
         },
-      ],
-    };
-
-    setTickets((currentTickets) => [nextTicket, ...currentTickets]);
-    setSelectedTicketId(ticketId);
-    setActiveScreen('ticket-detail');
-  };
-
-  const handleAddTicketMessage = (ticketId: string, message: string) => {
-    const timestamp = formatTicketTimestamp();
-
-    setTickets((currentTickets) =>
-      currentTickets.map((ticket) => {
-        if (ticket.id !== ticketId) {
-          return ticket;
-        }
-
-        return {
-          ...ticket,
-          lastActivity: timestamp,
-          messages: [
-            ...ticket.messages,
-            {
-              id: `${ticketId}-message-${ticket.messages.length + 1}`,
-              author: 'Residente',
-              body: message,
-              timestamp,
-              isResident: true,
-            },
-          ],
-        };
       }),
-    );
-  };
-
-  const handleUpdateTicketStatus = (ticketId: string, status: TicketStatus) => {
-    const timestamp = formatTicketTimestamp();
-
-    setTickets((currentTickets) =>
-      currentTickets.map((ticket) => {
-        if (ticket.id !== ticketId) {
-          return ticket;
-        }
-
-        return {
-          ...ticket,
-          status,
-          lastActivity: timestamp,
-        };
-      }),
-    );
-  };
-
-  const screen = useMemo(() => {
-    if (activeScreen === 'notifications') {
-      return <Notifications onBack={() => setActiveScreen('home')} />;
-    }
-
-    if (activeScreen === 'new-ticket') {
-      return (
-        <NewTicket
-          onBack={() => setActiveScreen('tickets')}
-          onSubmit={handleCreateTicket}
-        />
-      );
-    }
-
-    if (activeScreen === 'ticket-detail') {
-      return (
-        <TicketDetail
-          ticket={selectedTicket}
-          onBack={() => setActiveScreen('tickets')}
-          onAddMessage={handleAddTicketMessage}
-          onUpdateStatus={handleUpdateTicketStatus}
-        />
-      );
-    }
-
-    if (activeScreen === 'tickets') {
-      return (
-        <Tickets
-          tickets={tickets}
-          onOpenNewTicket={() => setActiveScreen('new-ticket')}
-          onOpenTicketDetail={(ticket) => {
-            setSelectedTicketId(ticket.id);
-            setActiveScreen('ticket-detail');
-          }}
-        />
-      );
-    }
-
-    if (activeScreen === 'aviso-detail') {
-      return (
-        <AvisoDetail
-          notice={selectedNotice}
-          onBack={() => setActiveScreen('avisos')}
-        />
-      );
-    }
-
-    if (activeScreen === 'avisos') {
-      return (
-        <Avisos
-          onOpenNoticeDetail={(notice) => {
-            setSelectedNotice(notice);
-            setActiveScreen('aviso-detail');
-          }}
-        />
-      );
-    }
-
-    if (activeScreen === 'receipt-submission-confirmation') {
-      return (
-        <ReceiptSubmissionConfirmation
-          onBackHome={() => setActiveScreen('home')}
-          onUploadAnother={() => setActiveScreen('upload-receipt')}
-        />
-      );
-    }
-
-    if (activeScreen === 'upload-receipt') {
-      return (
-        <UploadReceipt
-          onBack={() => setActiveScreen('home')}
-          onSubmit={() => setActiveScreen('receipt-submission-confirmation')}
-        />
-      );
-    }
-
-    if (activeScreen === 'payment-receipt-detail') {
-      return (
-        <PaymentReceiptDetail
-          receipt={selectedReceipt}
-          onBack={() => setActiveScreen('home')}
-        />
-      );
-    }
-
-    if (activeScreen === 'payment-transaction-detail') {
-      return (
-        <PaymentTransactionDetail
-          transaction={selectedTransaction}
-          onBack={() => setActiveScreen('home')}
-        />
-      );
-    }
-
-    if (activeScreen === 'account') {
-      return <Account />;
-    }
-
-    return (
-      <Home
-        onOpenPaymentTransactionDetail={(transaction) => {
-          setSelectedTransaction(transaction);
-          setActiveScreen('payment-transaction-detail');
-        }}
-        onOpenPaymentReceiptDetail={(receipt) => {
-          setSelectedReceipt(receipt);
-          setActiveScreen('payment-receipt-detail');
-        }}
-        onOpenUploadReceipt={() => setActiveScreen('upload-receipt')}
-      />
-    );
-  }, [
-    activeScreen,
-    selectedNotice,
-    selectedReceipt,
-    selectedTicket,
-    selectedTransaction,
-    tickets,
-  ]);
-
-  const activeSidebarItemKey =
-    activeScreen === 'tickets' ||
-    activeScreen === 'ticket-detail' ||
-    activeScreen === 'new-ticket'
-      ? 'tickets'
-      : activeScreen === 'avisos' || activeScreen === 'aviso-detail'
-        ? 'avisos'
-        : 'inicio';
-
-  const activeNavbarItemKey =
-    activeScreen === 'avisos' || activeScreen === 'aviso-detail'
-      ? 'avisos'
-      : activeScreen === 'tickets' ||
-          activeScreen === 'ticket-detail' ||
-          activeScreen === 'new-ticket'
-        ? 'tickets'
-      : 'inicio';
+  );
 
   if (!fontsLoaded) {
     return null;
@@ -291,20 +671,9 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <Fragment>
-        <Layout
-          activeNavbarItemKey={activeNavbarItemKey}
-          activeSidebarItemKey={activeSidebarItemKey}
-          onAvisosPress={() => setActiveScreen('avisos')}
-          onHomePress={() => setActiveScreen('home')}
-          onNotificationsPress={() => setActiveScreen('notifications')}
-          onProfilePress={() => setActiveScreen('account')}
-          onTicketsPress={() => setActiveScreen('tickets')}
-        >
-          {screen}
-        </Layout>
-        <StatusBar style="dark" />
-      </Fragment>
+      <QueryClientProvider client={queryClient}>
+        <AppShell />
+      </QueryClientProvider>
     </SafeAreaProvider>
   );
 }

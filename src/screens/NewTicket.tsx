@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import Button from '../components/atoms/Button';
@@ -11,25 +12,59 @@ import {
   FieldShell,
   cn,
 } from '../components/molecules/fieldShared';
+import { getMyCondominoDetail } from '../services/condomino';
+import { getErrorMessage } from '../services/error';
+import { buildTicketCreatePayload } from '../services/mappers';
+import { queryKeys } from '../services/queryKeys';
+import { createTicket } from '../services/tickets';
 import {
-  NewTicketPayload,
   TicketPriority,
   ticketCategoryOptions,
-  ticketHouseOptions,
   ticketPriorityOptions,
 } from './ticketsData';
 
 interface NewTicketProps {
   onBack?: () => void;
-  onSubmit?: (payload: NewTicketPayload) => void;
+  onCreated?: (ticketId: string) => void;
 }
 
-export default function NewTicket({ onBack, onSubmit }: NewTicketProps) {
+export default function NewTicket({ onBack, onCreated }: NewTicketProps) {
+  const queryClient = useQueryClient();
+  const condominiumQuery = useQuery({
+    queryKey: queryKeys.condominiumDetail,
+    queryFn: getMyCondominoDetail,
+  });
+  const createTicketMutation = useMutation({
+    mutationFn: createTicket,
+    onSuccess: async (ticket) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.tickets }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.ticketDetail(String(ticket.id)),
+        }),
+      ]);
+    },
+  });
+
   const [house, setHouse] = useState<string | null>(null);
   const [subject, setSubject] = useState('');
   const [category, setCategory] = useState<string | null>(null);
-  const [priority, setPriority] = useState<TicketPriority | null>(null);
+  const [priority, setPriority] = useState<TicketPriority | null>('Media');
   const [initialMessage, setInitialMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const houseOptions = useMemo(() => {
+    const options = [{ label: 'General', value: 'general' }];
+
+    for (const unit of condominiumQuery.data?.units ?? []) {
+      options.push({
+        label: unit.houseNumber,
+        value: String(unit.id),
+      });
+    }
+
+    return options;
+  }, [condominiumQuery.data?.units]);
 
   const isFormValid =
     !!house &&
@@ -60,72 +95,135 @@ export default function NewTicket({ onBack, onSubmit }: NewTicketProps) {
 
       <Card width="full">
         <View className="gap-4">
-          <SelectField
-            label="Casa"
-            options={ticketHouseOptions}
-            value={house}
-            onChange={setHouse}
-          />
-
-          <InputField
-            label="Asunto"
-            placeholder="Describe brevemente el motivo del ticket"
-            value={subject}
-            onChangeText={setSubject}
-          />
-
-          <SelectField
-            label="Categoría"
-            options={ticketCategoryOptions}
-            value={category}
-            onChange={setCategory}
-          />
-
-          <SelectField
-            label="Prioridad"
-            options={ticketPriorityOptions}
-            value={priority}
-            onChange={(value) => setPriority(value as TicketPriority)}
-          />
-
-          <FieldShell label="Mensaje inicial">
-            <TextInput
-              multiline
-              numberOfLines={5}
-              placeholder="Escribe el detalle inicial del ticket"
-              placeholderTextColor="#374151"
-              selectionColor="#18052E"
-              textAlignVertical="top"
-              value={initialMessage}
-              onChangeText={setInitialMessage}
-              className={cn(
-                FIELD_INPUT_CLASS,
-                FIELD_PLACEHOLDER_CLASS,
-                'min-h-28 py-3',
+          {condominiumQuery.isLoading ? (
+            <Text className="font-body text-sm text-med-gray">
+              Cargando unidades...
+            </Text>
+          ) : condominiumQuery.error ? (
+            <Text className="font-body text-sm text-danger">
+              {getErrorMessage(
+                condominiumQuery.error,
+                'No fue posible cargar las unidades disponibles.',
               )}
-            />
-          </FieldShell>
+            </Text>
+          ) : (
+            <>
+              <SelectField
+                label="Casa"
+                options={houseOptions}
+                value={house}
+                onChange={(value) => {
+                  setHouse(value);
+                  if (errorMessage) {
+                    setErrorMessage('');
+                  }
+                }}
+              />
 
-          <View className="gap-3 pt-2">
-            <Button
-              title="Crear ticket"
-              disabled={!isFormValid}
-              onPress={() => {
-                if (!house || !category || !priority) {
-                  return;
-                }
+              <InputField
+                errorText={errorMessage}
+                label="Asunto"
+                placeholder="Describe brevemente el motivo del ticket"
+                value={subject}
+                onChangeText={(value) => {
+                  setSubject(value);
+                  if (errorMessage) {
+                    setErrorMessage('');
+                  }
+                }}
+              />
 
-                onSubmit?.({
-                  house,
-                  subject: subject.trim(),
-                  category,
-                  priority,
-                  initialMessage: initialMessage.trim(),
-                });
-              }}
-            />
-            <Button title="Cancelar" variant="secondary" onPress={onBack} />
-          </View>
+              <SelectField
+                label="Categoría"
+                options={ticketCategoryOptions}
+                value={category}
+                onChange={(value) => {
+                  setCategory(value);
+                  if (errorMessage) {
+                    setErrorMessage('');
+                  }
+                }}
+              />
+
+              <SelectField
+                label="Prioridad"
+                options={ticketPriorityOptions}
+                value={priority}
+                onChange={(value) => {
+                  setPriority(value as TicketPriority);
+                  if (errorMessage) {
+                    setErrorMessage('');
+                  }
+                }}
+              />
+
+              <FieldShell label="Mensaje inicial">
+                <TextInput
+                  multiline
+                  numberOfLines={5}
+                  placeholder="Escribe el detalle inicial del ticket"
+                  placeholderTextColor="#374151"
+                  selectionColor="#18052E"
+                  textAlignVertical="top"
+                  value={initialMessage}
+                  onChangeText={(value) => {
+                    setInitialMessage(value);
+                    if (errorMessage) {
+                      setErrorMessage('');
+                    }
+                  }}
+                  className={cn(
+                    FIELD_INPUT_CLASS,
+                    FIELD_PLACEHOLDER_CLASS,
+                    'min-h-28 py-3',
+                  )}
+                />
+              </FieldShell>
+
+              <View className="gap-3 pt-2">
+                <Button
+                  title="Crear ticket"
+                  disabled={!isFormValid}
+                  loading={createTicketMutation.isPending}
+                  onPress={() => {
+                    if (
+                      !house ||
+                      !category ||
+                      !priority ||
+                      !condominiumQuery.data
+                    ) {
+                      return;
+                    }
+
+                    createTicketMutation.mutate(
+                      buildTicketCreatePayload({
+                        subject: subject.trim(),
+                        category,
+                        priority,
+                        message: initialMessage.trim(),
+                        condominoId: condominiumQuery.data.id,
+                        unitId: house === 'general' ? undefined : Number(house),
+                      }),
+                      {
+                        onSuccess: (ticket) => {
+                          onCreated?.(String(ticket.id));
+                        },
+                        onError: (error) => {
+                          setErrorMessage(
+                            getErrorMessage(
+                              error,
+                              'No fue posible crear el ticket.',
+                            ),
+                          );
+                        },
+                      },
+                    );
+                  }}
+                />
+                <Button title="Cancelar" variant="secondary" onPress={onBack} />
+              </View>
+            </>
+          )}
         </View>
       </Card>
     </View>
