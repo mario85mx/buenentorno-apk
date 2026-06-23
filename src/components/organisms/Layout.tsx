@@ -6,7 +6,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Header from './Header';
 import Navbar, { NavbarItem } from './Navbar';
 import Sidebar, { SidebarItem } from './Sidebar';
@@ -69,7 +69,10 @@ export default function Layout({
   onRefresh,
 }: LayoutProps) {
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isDesktop = width >= 960;
+  const shouldShowNavbar = !isDesktop;
+  const mobileNavbarOffset = shouldShowNavbar ? 88 + insets.bottom : 0;
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeSidebarItem, setActiveSidebarItem] = useState(sidebarItems[0].key);
   const [activeNavbarItem, setActiveNavbarItem] = useState(navbarItems[0].key);
@@ -101,8 +104,8 @@ export default function Layout({
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-[#F6F3FA]">
-      <View className="flex-1">
+    <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-primary">
+      <View className="flex-1 bg-[#F6F3FA]">
         {shouldShowSidebar ? (
           <>
             {!isDesktop ? (
@@ -155,6 +158,12 @@ export default function Layout({
             ref={scrollRef}
             className="flex-1"
             contentContainerClassName="px-5 py-5"
+            contentContainerStyle={{
+              paddingBottom: mobileNavbarOffset,
+            }}
+            style={{
+              marginBottom: shouldShowNavbar ? mobileNavbarOffset : 0,
+            }}
             refreshControl={
               onRefresh ? (
                 <RefreshControl
@@ -171,23 +180,41 @@ export default function Layout({
             {children}
           </ScrollView>
 
-          {!isDesktop ? (
-            <Navbar
-              activeItem={activeNavbarItem}
-              items={navbarItems}
-              onSelectItem={(key) => {
-                setActiveNavbarItem(key);
-                if (key === 'inicio') {
-                  onHomePress?.();
-                }
-                if (key === 'avisos') {
-                  onAvisosPress?.();
-                }
-                if (key === 'tickets') {
-                  onTicketsPress?.();
-                }
+          {shouldShowNavbar ? (
+            <View
+              className="z-10 bg-primary"
+              style={{
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                bottom: 0,
+                paddingBottom: insets.bottom,
+                elevation: 24,
+                shadowColor: '#000000',
+                shadowOpacity: 0.14,
+                shadowRadius: 10,
+                shadowOffset: { width: 0, height: -3 },
+                borderTopWidth: 1,
+                borderTopColor: '#2D1B45',
               }}
-            />
+            >
+              <Navbar
+                activeItem={activeNavbarItem}
+                items={navbarItems}
+                onSelectItem={(key) => {
+                  setActiveNavbarItem(key);
+                  if (key === 'inicio') {
+                    onHomePress?.();
+                  }
+                  if (key === 'avisos') {
+                    onAvisosPress?.();
+                  }
+                  if (key === 'tickets') {
+                    onTicketsPress?.();
+                  }
+                }}
+              />
+            </View>
           ) : null}
         </View>
       </View>

@@ -1,4 +1,5 @@
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
@@ -39,12 +40,13 @@ const maxReceiptFileSize = 10 * 1024 * 1024;
 function normalizeReceiptMimeType(
   mimeType?: string | null,
   fileName?: string | null,
+  uri?: string | null,
 ): UploadReceiptFilePayload['mimeType'] | null {
   if (mimeType === 'image/jpeg' || mimeType === 'image/png' || mimeType === 'application/pdf') {
     return mimeType;
   }
 
-  const normalizedName = fileName?.trim().toLowerCase() ?? '';
+  const normalizedName = (fileName?.trim() || uri?.trim() || '').toLowerCase();
 
   if (normalizedName.endsWith('.jpg') || normalizedName.endsWith('.jpeg')) {
     return 'image/jpeg';
@@ -69,6 +71,17 @@ function receiptMimeTypeLabel(mimeType: UploadReceiptFilePayload['mimeType']) {
       return 'PNG';
     default:
       return 'PDF';
+  }
+}
+
+function receiptFileExtension(mimeType: UploadReceiptFilePayload['mimeType']) {
+  switch (mimeType) {
+    case 'image/jpeg':
+      return 'jpg';
+    case 'image/png':
+      return 'png';
+    default:
+      return 'pdf';
   }
 }
 
@@ -142,6 +155,7 @@ export default function UploadReceipt({
   const [selectedChargeIds, setSelectedChargeIds] = useState<string[]>([]);
   const [selectedFile, setSelectedFile] =
     useState<UploadReceiptFilePayload | null>(null);
+  const [activePicker, setActivePicker] = useState<'photo' | 'file' | null>(null);
   const [isChargesOpen, setIsChargesOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -243,44 +257,112 @@ export default function UploadReceipt({
     );
   };
 
-  const pickReceiptFile = async () => {
-    setErrorMessage('');
+  const selectReceiptAsset = ({
+    uri,
+    mimeType,
+    name,
+    size,
+  }: {
+    uri: string;
+    mimeType?: string | null;
+    name?: string | null;
+    size?: number | null;
+  }) => {
+    const normalizedMimeType = normalizeReceiptMimeType(mimeType, name, uri);
 
-    const result = await DocumentPicker.getDocumentAsync({
-      type: [...allowedReceiptMimeTypes],
-      copyToCacheDirectory: true,
-      multiple: false,
-    });
-
-    if (result.canceled) {
-      return;
-    }
-
-    const asset = result.assets[0];
-
-    if (!asset) {
-      setErrorMessage('No se pudo leer el archivo seleccionado.');
-      return;
-    }
-
-    const mimeType = normalizeReceiptMimeType(asset.mimeType, asset.name);
-
-    if (!mimeType) {
+    if (!normalizedMimeType) {
       setErrorMessage('Solo se permiten archivos JPG, PNG o PDF.');
       return;
     }
 
-    if (asset.size && asset.size > maxReceiptFileSize) {
+    if (size && size > maxReceiptFileSize) {
       setErrorMessage('El archivo supera el límite de 10 MB.');
       return;
     }
 
     setSelectedFile({
-      uri: asset.uri,
-      name: asset.name,
-      mimeType,
-      size: asset.size,
+      uri,
+      name:
+        name?.trim() ||
+        `comprobante-${Date.now()}.${receiptFileExtension(normalizedMimeType)}`,
+      mimeType: normalizedMimeType,
+      size,
     });
+  };
+
+  const pickReceiptFromFiles = async () => {
+    setErrorMessage('');
+    setActivePicker('file');
+
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [...allowedReceiptMimeTypes],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      const asset = result.assets[0];
+
+      if (!asset) {
+        setErrorMessage('No se pudo leer el archivo seleccionado.');
+        return;
+      }
+
+      selectReceiptAsset({
+        uri: asset.uri,
+        mimeType: asset.mimeType,
+        name: asset.name,
+        size: asset.size,
+      });
+    } finally {
+      setActivePicker(null);
+    }
+  };
+
+  const pickReceiptFromPhotos = async () => {
+    setErrorMessage('');
+    setActivePicker('photo');
+
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        setErrorMessage('Necesitamos permiso para acceder a tus fotos.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: false,
+        quality: 1,
+        preferredAssetRepresentationMode:
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      const asset = result.assets[0];
+
+      if (!asset) {
+        setErrorMessage('No se pudo leer la foto seleccionada.');
+        return;
+      }
+
+      selectReceiptAsset({
+        uri: asset.uri,
+        mimeType: asset.mimeType,
+        name: asset.fileName,
+        size: asset.fileSize,
+      });
+    } finally {
+      setActivePicker(null);
+    }
   };
 
   const canSubmit =
@@ -440,16 +522,11 @@ export default function UploadReceipt({
                   helperText={
                     selectedFile
                       ? 'Archivo listo para enviarse con el comprobante.'
-                      : 'Selecciona un archivo JPG, PNG o PDF de hasta 10 MB.'
+                      : 'Elige una foto o un archivo JPG, PNG o PDF de hasta 10 MB.'
                   }
                   label="Archivo"
                 >
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => {
-                      void pickReceiptFile();
-                    }}
-                  >
+                  <View className="gap-3">
                     <View
                       className={cn(
                         FIELD_CONTROL_CLASS,
@@ -463,7 +540,7 @@ export default function UploadReceipt({
                             className="font-body text-base text-primary"
                             numberOfLines={1}
                           >
-                            {selectedFile?.name ?? 'Seleccionar archivo'}
+                            {selectedFile?.name ?? 'Ningún archivo seleccionado'}
                           </Text>
                           {selectedFile ? (
                             <Text className="font-body text-sm text-med-gray">
@@ -477,15 +554,36 @@ export default function UploadReceipt({
                       </View>
                       <Ionicons
                         color="#6B7280"
-                        name={
-                          selectedFile
-                            ? 'swap-horizontal-outline'
-                            : 'cloud-upload-outline'
-                        }
+                        name={selectedFile ? 'checkmark-circle-outline' : 'cloud-upload-outline'}
                         size={20}
                       />
                     </View>
-                  </Pressable>
+
+                    <View className="flex-row gap-3">
+                      <Button
+                        className="flex-1"
+                        disabled={activePicker === 'file'}
+                        icon="images-outline"
+                        loading={activePicker === 'photo'}
+                        title="Fotos"
+                        variant="secondary"
+                        onPress={() => {
+                          void pickReceiptFromPhotos();
+                        }}
+                      />
+                      <Button
+                        className="flex-1"
+                        disabled={activePicker === 'photo'}
+                        icon="document-outline"
+                        loading={activePicker === 'file'}
+                        title="Archivos"
+                        variant="secondary"
+                        onPress={() => {
+                          void pickReceiptFromFiles();
+                        }}
+                      />
+                    </View>
+                  </View>
                 </FieldShell>
 
                 {selectedFile ? (
@@ -535,7 +633,7 @@ export default function UploadReceipt({
 
                     if (!selectedFile) {
                       setErrorMessage(
-                        'Selecciona un archivo JPG, PNG o PDF antes de enviar el comprobante.',
+                        'Selecciona una foto o un archivo JPG, PNG o PDF antes de enviar el comprobante.',
                       );
                       return;
                     }

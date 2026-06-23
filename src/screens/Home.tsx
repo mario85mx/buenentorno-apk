@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, Text, TextInput, View } from 'react-native';
 import Badge from '../components/atoms/Badge';
 import Button from '../components/atoms/Button';
 import Card from '../components/atoms/Card';
@@ -129,7 +129,11 @@ export default function Home({
       }
 
       if (isNetworkError(condominiumQuery.error)) {
-        return `No se pudo conectar con el API en ${API_BASE_URL}. Si estás en Android emulator usa http://10.0.2.2:3000 y verifica que el backend esté levantado.`;
+        return `No se pudo conectar con el API en ${API_BASE_URL}. En ${
+          Platform.OS === 'ios' ? 'iOS Simulator' : 'Android emulator'
+        } normalmente debes usar ${
+          Platform.OS === 'ios' ? 'http://localhost:3000' : 'http://10.0.2.2:3000'
+        }.`;
       }
 
       return getErrorMessage(

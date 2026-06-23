@@ -58,6 +58,9 @@ function FadeSlideUp({
   return (
     <Animated.View
       style={{
+        // This animated wrapper is the direct child of the navbar row.
+        // It must grow so every navigation item receives an equal-width slot.
+        flex: 1,
         opacity,
         transform: [{ translateY }],
       }}
@@ -94,7 +97,7 @@ export default function Navbar({
 
   return (
     <Animated.View
-      className="flex-row border-t border-light-gray bg-white px-3 py-3"
+      className="flex-row border-t border-secondary bg-primary px-3 py-3"
       style={{
         opacity: containerOpacity,
         transform: [{ translateY: containerTranslateY }],
@@ -110,19 +113,19 @@ export default function Navbar({
                 accessibilityRole="button"
                 className={cn(
                   'items-center justify-center gap-1 rounded-2xl py-2',
-                  isActive && 'bg-[#FCECEF]',
+                  isActive && 'bg-white/15',
                 )}
                 onPress={() => onSelectItem?.(item.key)}
               >
                 <Ionicons
-                  color={isActive ? '#E2354D' : '#9CA3AF'}
+                  color="#FFFFFF"
                   name={item.icon}
                   size={20}
                 />
                 <Text
                   className={cn(
                     'font-body text-sm',
-                    isActive ? 'text-accent' : 'text-med-gray',
+                    'text-white',
                   )}
                 >
                   {item.label}

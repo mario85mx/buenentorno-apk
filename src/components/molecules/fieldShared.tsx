@@ -6,6 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colorTokens } from '../../theme/tokens';
 
 export interface FieldShellProps {
@@ -87,6 +88,8 @@ export function BottomSheet({
   children,
   footer,
 }: BottomSheetProps) {
+  const insets = useSafeAreaInsets();
+
   return (
     <Modal
       animationType="slide"
@@ -96,7 +99,10 @@ export function BottomSheet({
     >
       <View className="flex-1 justify-end bg-black/35">
         <Pressable className="flex-1" onPress={onClose} />
-        <View className="max-h-[85%] rounded-t-[32px] bg-white px-5 pb-6 pt-4">
+        <View
+          className="max-h-[85%] rounded-t-[32px] bg-white px-5 pt-4"
+          style={{ paddingBottom: 24 + insets.bottom }}
+        >
           <View className="mb-4 items-center">
             <View className="h-1.5 w-14 rounded-lg bg-light-gray" />
             <Text className="mt-4 font-heading text-xl text-primary">
