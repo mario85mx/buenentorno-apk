@@ -14,7 +14,11 @@ import {
 } from '../services/mappers';
 import { queryKeys } from '../services/queryKeys';
 
-export default function Account() {
+interface AccountProps {
+  onLogout?: () => void;
+}
+
+export default function Account({ onLogout }: AccountProps) {
   const queryClient = useQueryClient();
   const meQuery = useQuery({
     queryKey: queryKeys.me,
@@ -155,30 +159,39 @@ export default function Account() {
               </Text>
             ) : null}
 
-            <Button
-              disabled={!canSubmit}
-              loading={updateMeMutation.isPending}
-              title="Guardar cambios"
-              onPress={() => {
-                updateMeMutation.mutate(
-                  {
-                    name: fullName.trim(),
-                    email: email.trim(),
-                  },
-                  {
-                    onError: (error) => {
-                      setFeedbackMessage('');
-                      setErrorMessage(
-                        getErrorMessage(
-                          error,
-                          'No fue posible actualizar la cuenta.',
-                        ),
-                      );
+            <View className="gap-3">
+              <Button
+                disabled={!canSubmit}
+                loading={updateMeMutation.isPending}
+                title="Guardar cambios"
+                onPress={() => {
+                  updateMeMutation.mutate(
+                    {
+                      name: fullName.trim(),
+                      email: email.trim(),
                     },
-                  },
-                );
-              }}
-            />
+                    {
+                      onError: (error) => {
+                        setFeedbackMessage('');
+                        setErrorMessage(
+                          getErrorMessage(
+                            error,
+                            'No fue posible actualizar la cuenta.',
+                          ),
+                        );
+                      },
+                    },
+                  );
+                }}
+              />
+
+              <Button
+                icon="log-out-outline"
+                title="Cerrar sesión"
+                variant="outline"
+                onPress={onLogout}
+              />
+            </View>
           </>
         )}
       </View>

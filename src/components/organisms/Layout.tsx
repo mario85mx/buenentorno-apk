@@ -15,7 +15,9 @@ export interface LayoutProps {
   children: ReactNode;
   contentKey?: string;
   onHomePress?: () => void;
+  onCommonAreasPress?: () => void;
   onAvisosPress?: () => void;
+  onSurveysPress?: () => void;
   onTicketsPress?: () => void;
   onProfilePress?: () => void;
   onNotificationsPress?: () => void;
@@ -26,6 +28,7 @@ export interface LayoutProps {
   notificationCount?: number;
   refreshing?: boolean;
   onRefresh?: () => void;
+  showCommonAreasMenu?: boolean;
 }
 
 const sidebarItems: SidebarItem[] = [
@@ -35,9 +38,19 @@ const sidebarItems: SidebarItem[] = [
     icon: { library: 'ionicons', name: 'home-outline' },
   },
   {
+    key: 'areas-comunes',
+    label: 'Áreas',
+    icon: { library: 'ionicons', name: 'calendar-outline' },
+  },
+  {
     key: 'avisos',
     label: 'Avisos',
     icon: { library: 'feather', name: 'bell' },
+  },
+  {
+    key: 'encuestas',
+    label: 'Encuestas',
+    icon: { library: 'ionicons', name: 'stats-chart-outline' },
   },
   {
     key: 'tickets',
@@ -56,7 +69,9 @@ export default function Layout({
   children,
   contentKey,
   onHomePress,
+  onCommonAreasPress,
   onAvisosPress,
+  onSurveysPress,
   onTicketsPress,
   onProfilePress,
   onNotificationsPress,
@@ -67,6 +82,7 @@ export default function Layout({
   notificationCount = 0,
   refreshing = false,
   onRefresh,
+  showCommonAreasMenu = true,
 }: LayoutProps) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -102,6 +118,20 @@ export default function Layout({
     () => (isDesktop ? 'ml-72' : ''),
     [isDesktop],
   );
+  const visibleSidebarItems = useMemo(
+    () =>
+      showCommonAreasMenu
+        ? sidebarItems
+        : sidebarItems.filter((item) => item.key !== 'areas-comunes'),
+    [showCommonAreasMenu],
+  );
+  const visibleNavbarItems = useMemo(
+    () =>
+      showCommonAreasMenu
+        ? navbarItems
+        : navbarItems.filter((item) => item.key !== 'areas-comunes'),
+    [showCommonAreasMenu],
+  );
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-primary">
@@ -122,15 +152,21 @@ export default function Layout({
             >
               <Sidebar
                 activeItem={activeSidebarItem}
-                items={sidebarItems}
+                items={visibleSidebarItems}
                 onLogout={onLogout}
                 onSelectItem={(key) => {
                   setActiveSidebarItem(key);
                   if (key === 'inicio') {
                     onHomePress?.();
                   }
+                  if (key === 'areas-comunes') {
+                    onCommonAreasPress?.();
+                  }
                   if (key === 'avisos') {
                     onAvisosPress?.();
+                  }
+                  if (key === 'encuestas') {
+                    onSurveysPress?.();
                   }
                   if (key === 'tickets') {
                     onTicketsPress?.();
@@ -200,14 +236,20 @@ export default function Layout({
             >
               <Navbar
                 activeItem={activeNavbarItem}
-                items={navbarItems}
+                items={visibleNavbarItems}
                 onSelectItem={(key) => {
                   setActiveNavbarItem(key);
                   if (key === 'inicio') {
                     onHomePress?.();
                   }
+                  if (key === 'areas-comunes') {
+                    onCommonAreasPress?.();
+                  }
                   if (key === 'avisos') {
                     onAvisosPress?.();
+                  }
+                  if (key === 'encuestas') {
+                    onSurveysPress?.();
                   }
                   if (key === 'tickets') {
                     onTicketsPress?.();

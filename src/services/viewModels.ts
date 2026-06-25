@@ -99,7 +99,12 @@ export interface NotificationViewModel {
   time: string;
   createdAt: string;
   href?: string;
-  icon: 'wallet-outline' | 'megaphone-outline' | 'ticket-outline' | 'alert-circle-outline';
+  icon:
+    | 'wallet-outline'
+    | 'megaphone-outline'
+    | 'ticket-outline'
+    | 'calendar-outline'
+    | 'alert-circle-outline';
   accentClassName: string;
   iconColor: string;
 }

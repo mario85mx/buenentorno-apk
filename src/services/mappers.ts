@@ -487,17 +487,29 @@ export function mapAccountMovements(
   }
 
   const chargeMovements = condomino.units.flatMap((unit) =>
-    unit.charges.map((charge) => ({
-      transaction: mapChargeToTransaction(charge, unit),
-      sortAt: new Date(charge.dueDate ?? charge.createdAt).getTime(),
-    })),
+    unit.charges
+      .filter((charge) => charge.status !== 'CANCELLED')
+      .flatMap((charge) => {
+        const transaction = mapChargeToTransaction(charge, unit);
+
+        if (transaction.status === 'Pagado') {
+          return [];
+        }
+
+        return {
+          transaction,
+          sortAt: new Date(charge.dueDate ?? charge.createdAt).getTime(),
+        };
+      }),
   );
 
   const paymentMovements = condomino.units.flatMap((unit) =>
-    unit.payments.map((payment) => ({
-      transaction: mapPaymentToTransaction(payment, unit),
-      sortAt: new Date(payment.paymentDate ?? payment.createdAt).getTime(),
-    })),
+    unit.payments
+      .filter((payment) => payment.status === 'ACTIVE')
+      .map((payment) => ({
+        transaction: mapPaymentToTransaction(payment, unit),
+        sortAt: new Date(payment.paymentDate ?? payment.createdAt).getTime(),
+      })),
   );
 
   return [...chargeMovements, ...paymentMovements]
@@ -698,6 +710,22 @@ export function mapNotificationToViewModel(
         icon: 'wallet-outline',
         accentClassName: 'bg-success/10',
         iconColor: '#83A96A',
+      };
+    case 'COMMON_AREA_RESERVATION_CREATED':
+    case 'COMMON_AREA_RESERVATION_APPROVED':
+      return {
+        ...baseNotification,
+        icon: 'calendar-outline',
+        accentClassName: 'bg-[#E8EEF9]',
+        iconColor: '#3E63B8',
+      };
+    case 'TICKET_CREATED':
+    case 'TICKET_MESSAGE':
+      return {
+        ...baseNotification,
+        icon: 'ticket-outline',
+        accentClassName: 'bg-[#E7DEF5]',
+        iconColor: '#5A3D8A',
       };
     default:
       return {

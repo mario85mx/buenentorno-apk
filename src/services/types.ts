@@ -14,6 +14,10 @@ export type NotificationType =
   | 'PAYMENT_REVIEW'
   | 'PAYMENT_APPROVED'
   | 'PAYMENT_REJECTED'
+  | 'COMMON_AREA_RESERVATION_CREATED'
+  | 'COMMON_AREA_RESERVATION_APPROVED'
+  | 'TICKET_CREATED'
+  | 'TICKET_MESSAGE'
   | 'NOTICE';
 
 export interface AuthUserCondominium {
@@ -201,6 +205,42 @@ export interface ListNoticesResponse {
   data: NoticeDto[];
 }
 
+export interface SurveyAuthorDto {
+  id: number;
+  name: string;
+}
+
+export interface SurveyOptionDto {
+  id: number;
+  text: string;
+  position: number;
+  voteCount: number;
+  isSelected: boolean;
+}
+
+export interface SurveyDto {
+  id: number;
+  title: string;
+  description?: string | null;
+  publishedAt: string;
+  closesAt?: string | null;
+  isOpen: boolean;
+  totalVotes: number;
+  myOptionId?: number | null;
+  createdBy?: SurveyAuthorDto | null;
+  options: SurveyOptionDto[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ListSurveysResponse {
+  data: SurveyDto[];
+}
+
+export interface SurveyVotePayload {
+  optionId: number;
+}
+
 export interface DashboardSummaryDto {
   totalBalance: number;
   totalPaidThisMonth: number;
@@ -302,4 +342,94 @@ export interface ReportPaymentPayload {
     amount: number;
   }>;
   file?: UploadReceiptFilePayload;
+}
+
+export interface CommonAreaAuthorDto {
+  id: number;
+  name: string;
+}
+
+export interface CommonAreaDto {
+  id: number;
+  condominiumId: number;
+  name: string;
+  description?: string | null;
+  location?: string | null;
+  capacity?: number | null;
+  isActive: boolean;
+  requiresApproval: boolean;
+  openingTime: string;
+  closingTime: string;
+  minAdvanceHours: number;
+  maxDurationMinutes: number;
+  createdBy?: CommonAreaAuthorDto | null;
+  updatedBy?: CommonAreaAuthorDto | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommonAreaListResponse {
+  data: CommonAreaDto[];
+}
+
+export type CommonAreaReservationStatus =
+  | 'PENDING'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'CANCELLED';
+
+export interface CommonAreaReservationAreaDto {
+  id: number;
+  name: string;
+  location?: string | null;
+}
+
+export interface CommonAreaReservationCondominoDto {
+  id: number;
+  name: string;
+}
+
+export interface CommonAreaReservationUnitDto {
+  id: number;
+  houseNumber: string;
+}
+
+export interface CommonAreaReservationUserDto {
+  id: number;
+  name: string;
+  email: string;
+  role: UserRole;
+}
+
+export interface CommonAreaReservationDto {
+  id: number;
+  status: CommonAreaReservationStatus;
+  area: CommonAreaReservationAreaDto;
+  condomino: CommonAreaReservationCondominoDto;
+  unit: CommonAreaReservationUnitDto;
+  createdBy?: CommonAreaReservationUserDto | null;
+  reviewedBy?: CommonAreaReservationUserDto | null;
+  cancelledBy?: CommonAreaReservationUserDto | null;
+  startAt: string;
+  endAt: string;
+  attendees?: number | null;
+  notes?: string | null;
+  reviewNotes?: string | null;
+  reviewedAt?: string | null;
+  cancelledAt?: string | null;
+  cancelReason?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommonAreaReservationListResponse {
+  data: CommonAreaReservationDto[];
+}
+
+export interface CreateCommonAreaReservationPayload {
+  commonAreaId: number;
+  unitId: number;
+  startAt: string;
+  endAt: string;
+  notes?: string;
 }

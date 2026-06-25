@@ -7,7 +7,7 @@ import {
   Text,
 } from 'react-native';
 
-type ButtonVariant = 'primary' | 'secondary' | 'danger';
+type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'outline';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
 export interface ButtonProps extends PressableProps {
@@ -24,12 +24,14 @@ const containerVariants: Record<ButtonVariant, string> = {
   primary: 'border-primary bg-primary',
   secondary: 'border-secondary bg-secondary',
   danger: 'border-danger bg-danger',
+  outline: 'border-primary bg-transparent',
 };
 
 const textVariants: Record<ButtonVariant, string> = {
   primary: 'text-white',
   secondary: 'text-white',
   danger: 'text-white',
+  outline: 'text-primary',
 };
 
 const sizeVariants: Record<ButtonSize, string> = {

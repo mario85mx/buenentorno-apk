@@ -26,6 +26,9 @@ import Layout from './src/components/organisms/Layout';
 import Account from './src/screens/Account';
 import AvisoDetail from './src/screens/AvisoDetail';
 import Avisos from './src/screens/Avisos';
+import CommonAreas from './src/screens/CommonAreas';
+import EncuestaDetail from './src/screens/EncuestaDetail';
+import Encuestas from './src/screens/Encuestas';
 import Home from './src/screens/Home';
 import Login from './src/screens/Login';
 import NewTicket from './src/screens/NewTicket';
@@ -39,6 +42,7 @@ import Tickets from './src/screens/Tickets';
 import UploadReceipt from './src/screens/UploadReceipt';
 import { setApiAccessToken } from './src/services/api';
 import { forgotPassword, getMe, login } from './src/services/auth';
+import { getCommonAreas } from './src/services/commonAreas';
 import { getNotifications } from './src/services/condomino';
 import { isUnauthorizedError } from './src/services/error';
 import {
@@ -63,22 +67,27 @@ import type {
 
 type RootRouteName =
   | 'home'
+  | 'common-areas'
   | 'account'
   | 'notifications'
   | 'avisos'
+  | 'encuestas'
   | 'tickets';
 
 type AppStackParamList = {
   home: { tab?: 'movimientos' | 'comprobantes' } | undefined;
+  'common-areas': undefined;
   account: undefined;
   notifications: undefined;
   avisos: undefined;
+  encuestas: undefined;
   tickets: undefined;
   'payment-transaction-detail': { transaction: PaymentTransaction };
   'payment-receipt-detail': { receipt: PaymentReceipt };
   'upload-receipt': undefined;
   'receipt-submission-confirmation': undefined;
   'aviso-detail': { notice: Notice };
+  'encuesta-detail': { surveyId: number };
   'ticket-detail': { ticketId: string };
   'new-ticket': undefined;
 };
@@ -86,8 +95,16 @@ type AppStackParamList = {
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
 function getActiveMenuKey(routeName: RootRouteName) {
+  if (routeName === 'common-areas') {
+    return 'areas-comunes';
+  }
+
   if (routeName === 'avisos') {
     return 'avisos';
+  }
+
+  if (routeName === 'encuestas') {
+    return 'encuestas';
   }
 
   if (routeName === 'tickets') {
@@ -148,6 +165,23 @@ function AppShell() {
     enabled: isSessionReady && isAuthenticated,
     staleTime: 30_000,
   });
+  const commonAreasQuery = useQuery({
+    queryKey: queryKeys.commonAreas,
+    queryFn: getCommonAreas,
+    enabled: isSessionReady && isAuthenticated,
+    staleTime: 60_000,
+  });
+  const shouldShowCommonAreasMenu = useMemo(() => {
+    if (!isAuthenticated) {
+      return false;
+    }
+
+    if (commonAreasQuery.isSuccess) {
+      return (commonAreasQuery.data?.length ?? 0) > 0;
+    }
+
+    return true;
+  }, [commonAreasQuery.data?.length, commonAreasQuery.isSuccess, isAuthenticated]);
 
   useEffect(() => {
     if (!meQuery.data || !session) {
@@ -291,6 +325,24 @@ function AppShell() {
         return;
       }
 
+      if (notification.href?.startsWith('/areas-comunes')) {
+        navigation.replace('common-areas');
+        return;
+      }
+
+      if (
+        notification.href?.startsWith('/encuestas') ||
+        notification.href?.startsWith('/surveys')
+      ) {
+        navigation.replace('encuestas');
+        return;
+      }
+
+      if (notification.href?.startsWith('/tickets')) {
+        navigation.replace('tickets');
+        return;
+      }
+
       navigation.replace('home');
     },
     [markNotificationsAsSeen, openHomeTab],
@@ -364,6 +416,7 @@ function AppShell() {
           hasNotifications={unreadNotificationsCount > 0}
           notificationCount={unreadNotificationsCount}
           onAvisosPress={() => replaceRoot('avisos')}
+          onCommonAreasPress={() => replaceRoot('common-areas')}
           onHomePress={() => replaceRoot('home')}
           onNotificationsPress={() => {
             void markNotificationsAsSeen();
@@ -374,15 +427,22 @@ function AppShell() {
             setAuthScreen('login');
           }}
           onProfilePress={() => replaceRoot('account')}
+          onSurveysPress={() => replaceRoot('encuestas')}
           onTicketsPress={() => replaceRoot('tickets')}
           onRefresh={options?.onRefresh}
           refreshing={options?.refreshing}
+          showCommonAreasMenu={shouldShowCommonAreasMenu}
         >
           {content}
         </Layout>
       );
     },
-    [handleLogout, markNotificationsAsSeen, unreadNotificationsCount],
+    [
+      handleLogout,
+      markNotificationsAsSeen,
+      shouldShowCommonAreasMenu,
+      unreadNotificationsCount,
+    ],
   );
 
   const authContent = useMemo(
@@ -456,7 +516,28 @@ function AppShell() {
 
             <Stack.Screen name="account">
               {({ navigation, route }) =>
-                renderLayout(navigation, 'account', route.key, <Account />)
+                renderLayout(
+                  navigation,
+                  'account',
+                  route.key,
+                  <Account
+                    onLogout={() => {
+                      void handleLogout();
+                      setAuthScreen('login');
+                    }}
+                  />,
+                )
+              }
+            </Stack.Screen>
+
+            <Stack.Screen name="common-areas">
+              {({ navigation, route }) =>
+                renderLayout(
+                  navigation,
+                  'common-areas',
+                  route.key,
+                  <CommonAreas />,
+                )
               }
             </Stack.Screen>
 
@@ -488,6 +569,21 @@ function AppShell() {
                   <Avisos
                     onOpenNoticeDetail={(notice) =>
                       navigation.navigate('aviso-detail', { notice })
+                    }
+                  />,
+                )
+              }
+            </Stack.Screen>
+
+            <Stack.Screen name="encuestas">
+              {({ navigation, route }) =>
+                renderLayout(
+                  navigation,
+                  'encuestas',
+                  route.key,
+                  <Encuestas
+                    onOpenSurveyDetail={(surveyId) =>
+                      navigation.navigate('encuesta-detail', { surveyId })
                     }
                   />,
                 )
@@ -595,6 +691,23 @@ function AppShell() {
                   route.key,
                   <AvisoDetail
                     notice={route.params.notice}
+                    onBack={() => navigation.goBack()}
+                  />,
+                )
+              }
+            </Stack.Screen>
+
+            <Stack.Screen
+              name="encuesta-detail"
+              options={{ animation: 'slide_from_right' }}
+            >
+              {({ navigation, route }) =>
+                renderLayout(
+                  navigation,
+                  'encuestas',
+                  route.key,
+                  <EncuestaDetail
+                    surveyId={route.params.surveyId}
                     onBack={() => navigation.goBack()}
                   />,
                 )
