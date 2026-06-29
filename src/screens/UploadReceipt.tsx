@@ -97,6 +97,29 @@ function formatFileSize(size?: number | null) {
   return `${Math.max(1, Math.round(size / 1024))} KB`;
 }
 
+function roundCurrencyAmount(value: number) {
+  return Number(value.toFixed(2));
+}
+
+function getCreditApplication(
+  selectedTotal: number,
+  availableCredit: number,
+  useCreditBalance: boolean,
+) {
+  const creditAppliedAmount = useCreditBalance
+    ? Math.min(selectedTotal, availableCredit)
+    : 0;
+  const remainingReceiptAmount = Math.max(
+    selectedTotal - creditAppliedAmount,
+    0,
+  );
+
+  return {
+    creditAppliedAmount: roundCurrencyAmount(creditAppliedAmount),
+    remainingReceiptAmount: roundCurrencyAmount(remainingReceiptAmount),
+  };
+}
+
 function getUnitBlockedChargeIds(unit: UnitDetailDto) {
   const blockedChargeIds = new Set<number>();
 
@@ -158,6 +181,7 @@ export default function UploadReceipt({
   const [activePicker, setActivePicker] = useState<'photo' | 'file' | null>(null);
   const [isChargesOpen, setIsChargesOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [useCreditBalance, setUseCreditBalance] = useState(false);
 
   useEffect(() => {
     if (!selectedUnitId && condominiumQuery.data?.units.length) {
@@ -242,6 +266,24 @@ export default function UploadReceipt({
         0,
       ),
     [selectedCharges],
+  );
+  const creditAppliedAmount = useMemo(
+    () =>
+      getCreditApplication(
+        uploadAmount,
+        selectedUnit?.balance.credit ?? 0,
+        useCreditBalance,
+      ).creditAppliedAmount,
+    [selectedUnit?.balance.credit, uploadAmount, useCreditBalance],
+  );
+  const remainingReceiptAmount = useMemo(
+    () =>
+      getCreditApplication(
+        uploadAmount,
+        selectedUnit?.balance.credit ?? 0,
+        useCreditBalance,
+      ).remainingReceiptAmount,
+    [selectedUnit?.balance.credit, uploadAmount, useCreditBalance],
   );
   const selectedChargesLabel = selectedCharges.length
     ? `${selectedCharges.length} cargo${
@@ -368,7 +410,7 @@ export default function UploadReceipt({
   const canSubmit =
     !!selectedUnit &&
     !!paymentDate &&
-    uploadAmount > 0 &&
+    remainingReceiptAmount > 0 &&
     !!selectedFile &&
     !reportPaymentMutation.isPending;
 
@@ -415,6 +457,7 @@ export default function UploadReceipt({
                   onChange={(value) => {
                     setSelectedUnitId(value);
                     setSelectedChargeIds([]);
+                    setUseCreditBalance(false);
                     if (errorMessage) {
                       setErrorMessage('');
                     }
@@ -424,11 +467,11 @@ export default function UploadReceipt({
                 <FieldShell
                   disabled
                   label="Comprobante por subir"
-                  helperText="Se calcula automáticamente según los cargos seleccionados."
+                  helperText="Se calcula automáticamente según los cargos seleccionados y el saldo a favor aplicado."
                 >
                   <View className={cn(FIELD_CONTROL_CLASS, 'justify-center')}>
                     <Text className="font-body-semibold text-base text-primary">
-                      {formatCurrency(uploadAmount)}
+                      {formatCurrency(remainingReceiptAmount)}
                     </Text>
                   </View>
                 </FieldShell>
@@ -476,7 +519,13 @@ export default function UploadReceipt({
                   active={isChargesOpen}
                   helperText={
                     selectedUnitBlockedMessage ||
-                    'Selecciona uno o más cargos para aplicar el pago.'
+                    (selectedCharges.length
+                      ? `Total seleccionado: ${formatCurrency(uploadAmount)}. Saldo a favor descontado: ${formatCurrency(
+                          creditAppliedAmount,
+                        )}. Comprobante restante: ${formatCurrency(
+                          remainingReceiptAmount,
+                        )}.`
+                      : 'Selecciona uno o más cargos para aplicar el pago.')
                   }
                   label="Aplicar cargos"
                 >
@@ -517,93 +566,151 @@ export default function UploadReceipt({
                   </View>
                 ) : null}
 
-                <FieldShell
-                  active={!!selectedFile}
-                  helperText={
-                    selectedFile
-                      ? 'Archivo listo para enviarse con el comprobante.'
-                      : 'Elige una foto o un archivo JPG, PNG o PDF de hasta 10 MB.'
-                  }
-                  label="Archivo"
-                >
-                  <View className="gap-3">
-                    <View
-                      className={cn(
-                        FIELD_CONTROL_CLASS,
-                        'flex-row items-center justify-between gap-3',
-                      )}
+                {selectedUnit && selectedUnit.balance.credit > 0 ? (
+                  <View className="gap-2 rounded-xl border border-[#B7E4C7] bg-[#F0FDF4] p-4">
+                    <Pressable
+                      accessibilityRole="checkbox"
+                      accessibilityState={{
+                        checked: useCreditBalance,
+                        disabled:
+                          reportPaymentMutation.isPending ||
+                          selectedCharges.length === 0,
+                      }}
+                      className="flex-row items-start gap-3"
+                      disabled={
+                        reportPaymentMutation.isPending || selectedCharges.length === 0
+                      }
+                      onPress={() => setUseCreditBalance((current) => !current)}
                     >
-                      <View className="flex-1 flex-row items-center gap-3">
-                        <Ionicons color="#18052E" name="attach-outline" size={20} />
-                        <View className="flex-1">
-                          <Text
-                            className="font-body text-base text-primary"
-                            numberOfLines={1}
-                          >
-                            {selectedFile?.name ?? 'Ningún archivo seleccionado'}
-                          </Text>
-                          {selectedFile ? (
-                            <Text className="font-body text-sm text-med-gray">
-                              {receiptMimeTypeLabel(selectedFile.mimeType)}
-                              {selectedFile.size
-                                ? ` · ${formatFileSize(selectedFile.size)}`
-                                : ''}
-                            </Text>
-                          ) : null}
-                        </View>
-                      </View>
                       <Ionicons
-                        color="#6B7280"
-                        name={selectedFile ? 'checkmark-circle-outline' : 'cloud-upload-outline'}
-                        size={20}
+                        color={useCreditBalance ? '#18052E' : '#6B7280'}
+                        name={useCreditBalance ? 'checkbox-outline' : 'square-outline'}
+                        size={22}
                       />
-                    </View>
-
-                    <View className="flex-row gap-3">
-                      <Button
-                        className="flex-1"
-                        disabled={activePicker === 'file'}
-                        icon="images-outline"
-                        loading={activePicker === 'photo'}
-                        title="Fotos"
-                        variant="secondary"
-                        onPress={() => {
-                          void pickReceiptFromPhotos();
-                        }}
-                      />
-                      <Button
-                        className="flex-1"
-                        disabled={activePicker === 'photo'}
-                        icon="document-outline"
-                        loading={activePicker === 'file'}
-                        title="Archivos"
-                        variant="secondary"
-                        onPress={() => {
-                          void pickReceiptFromFiles();
-                        }}
-                      />
-                    </View>
+                      <View className="flex-1 gap-1">
+                        <Text className="font-body-semibold text-sm text-primary">
+                          Pagar con saldo a favor disponible{' '}
+                          {formatCurrency(selectedUnit.balance.credit)}
+                        </Text>
+                        {useCreditBalance && selectedCharges.length > 0 ? (
+                          <Text className="font-body text-xs text-[#166534]">
+                            Se descontarán {formatCurrency(creditAppliedAmount)} del
+                            saldo a favor y el comprobante cubrirá{' '}
+                            {formatCurrency(remainingReceiptAmount)}.
+                          </Text>
+                        ) : null}
+                      </View>
+                    </Pressable>
                   </View>
-                </FieldShell>
-
-                {selectedFile ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    className="self-start rounded-full border border-light-gray px-3 py-2"
-                    onPress={() => setSelectedFile(null)}
-                  >
-                    <Text className="font-body-semibold text-sm text-primary">
-                      Quitar archivo
-                    </Text>
-                  </Pressable>
                 ) : null}
 
-                <InputField
-                  label="Nota"
-                  placeholder="transferencia desde BBVA"
-                  value={note}
-                  onChangeText={setNote}
-                />
+                {remainingReceiptAmount > 0 ? (
+                  <>
+                    <FieldShell
+                      active={!!selectedFile}
+                      helperText={
+                        selectedFile
+                          ? 'Archivo listo para enviarse con el comprobante.'
+                          : 'Elige una foto o un archivo JPG, PNG o PDF de hasta 10 MB.'
+                      }
+                      label="Archivo"
+                    >
+                      <View className="gap-3">
+                        <View
+                          className={cn(
+                            FIELD_CONTROL_CLASS,
+                            'flex-row items-center justify-between gap-3',
+                          )}
+                        >
+                          <View className="flex-1 flex-row items-center gap-3">
+                            <Ionicons
+                              color="#18052E"
+                              name="attach-outline"
+                              size={20}
+                            />
+                            <View className="flex-1">
+                              <Text
+                                className="font-body text-base text-primary"
+                                numberOfLines={1}
+                              >
+                                {selectedFile?.name ?? 'Ningún archivo seleccionado'}
+                              </Text>
+                              {selectedFile ? (
+                                <Text className="font-body text-sm text-med-gray">
+                                  {receiptMimeTypeLabel(selectedFile.mimeType)}
+                                  {selectedFile.size
+                                    ? ` · ${formatFileSize(selectedFile.size)}`
+                                    : ''}
+                                </Text>
+                              ) : null}
+                            </View>
+                          </View>
+                          <Ionicons
+                            color="#6B7280"
+                            name={
+                              selectedFile
+                                ? 'checkmark-circle-outline'
+                                : 'cloud-upload-outline'
+                            }
+                            size={20}
+                          />
+                        </View>
+
+                        <View className="flex-row gap-3">
+                          <Button
+                            className="flex-1"
+                            disabled={activePicker === 'file'}
+                            icon="images-outline"
+                            loading={activePicker === 'photo'}
+                            title="Fotos"
+                            variant="secondary"
+                            onPress={() => {
+                              void pickReceiptFromPhotos();
+                            }}
+                          />
+                          <Button
+                            className="flex-1"
+                            disabled={activePicker === 'photo'}
+                            icon="document-outline"
+                            loading={activePicker === 'file'}
+                            title="Archivos"
+                            variant="secondary"
+                            onPress={() => {
+                              void pickReceiptFromFiles();
+                            }}
+                          />
+                        </View>
+                      </View>
+                    </FieldShell>
+
+                    {selectedFile ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        className="self-start rounded-full border border-light-gray px-3 py-2"
+                        onPress={() => setSelectedFile(null)}
+                      >
+                        <Text className="font-body-semibold text-sm text-primary">
+                          Quitar archivo
+                        </Text>
+                      </Pressable>
+                    ) : null}
+
+                    <InputField
+                      label="Nota"
+                      placeholder="transferencia desde BBVA"
+                      value={note}
+                      onChangeText={setNote}
+                    />
+                  </>
+                ) : selectedCharges.length > 0 && creditAppliedAmount > 0 ? (
+                  <View className="rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3">
+                    <Text className="font-body text-sm text-[#1D4ED8]">
+                      El saldo a favor cubre todo el total seleccionado. Esta
+                      pantalla solo envía comprobantes, así que no hay nada por
+                      subir con esta selección.
+                    </Text>
+                  </View>
+                ) : null}
 
                 <FieldShell label="Observaciones">
                   <View className="min-h-[76px] justify-center">
@@ -627,7 +734,12 @@ export default function UploadReceipt({
                   loading={reportPaymentMutation.isPending}
                   title="Enviar a revisión"
                   onPress={() => {
-                    if (!selectedUnit || !paymentDate || uploadAmount <= 0) {
+                    if (
+                      !selectedUnit ||
+                      !paymentDate ||
+                      uploadAmount <= 0 ||
+                      remainingReceiptAmount <= 0
+                    ) {
                       return;
                     }
 
@@ -641,7 +753,9 @@ export default function UploadReceipt({
                     reportPaymentMutation.mutate(
                       {
                         unitId: selectedUnit.id,
-                        amount: uploadAmount,
+                        amount: remainingReceiptAmount,
+                        creditAppliedAmount:
+                          creditAppliedAmount > 0 ? creditAppliedAmount : undefined,
                         paymentDate: paymentDate.toISOString(),
                         method: 'TRANSFER',
                         reference: reference.trim() || undefined,

@@ -331,6 +331,7 @@ export interface UploadReceiptFilePayload {
 export interface ReportPaymentPayload {
   unitId: number;
   amount: number;
+  creditAppliedAmount?: number;
   paymentDate: string;
   method: PaymentMethod;
   reference?: string;

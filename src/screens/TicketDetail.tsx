@@ -1,7 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  Text,
+  TextInput,
+  type TextInputProps,
+  View,
+} from 'react-native';
 import Badge from '../components/atoms/Badge';
 import Button from '../components/atoms/Button';
 import Card from '../components/atoms/Card';
@@ -30,6 +37,10 @@ export default function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
   );
   const queryClient = useQueryClient();
   const numericTicketId = Number(ticketId);
+  const webTextareaRowsProps =
+    Platform.OS === 'web'
+      ? ({ rows: 3 } as unknown as TextInputProps)
+      : undefined;
 
   const ticketQuery = useQuery({
     queryKey: queryKeys.ticketDetail(ticketId ?? 'unknown'),
@@ -229,12 +240,13 @@ export default function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
             <FieldShell label="Nuevo mensaje">
               <TextInput
                 multiline
-                numberOfLines={4}
+                numberOfLines={3}
                 placeholder="Escribe un mensaje para dar seguimiento al ticket"
                 placeholderTextColor="#374151"
                 selectionColor="#18052E"
                 textAlignVertical="top"
                 value={draftMessage}
+                {...webTextareaRowsProps}
                 onChangeText={(value) => {
                   setDraftMessage(value);
                   if (feedbackMessage) {

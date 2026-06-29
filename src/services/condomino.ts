@@ -27,6 +27,11 @@ export async function reportPayment(payload: ReportPaymentPayload) {
   const form = new FormData();
   form.append('unitId', String(payload.unitId));
   form.append('amount', String(payload.amount));
+
+  if (payload.creditAppliedAmount && payload.creditAppliedAmount > 0) {
+    form.append('creditAppliedAmount', String(payload.creditAppliedAmount));
+  }
+
   form.append('paymentDate', payload.paymentDate);
   form.append('method', payload.method);
 
