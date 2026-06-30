@@ -483,6 +483,11 @@ function AppShell() {
         return;
       }
 
+      if (notification.href?.startsWith('/visitor-access')) {
+        navigation.replace(resolveAccessibleRoute('visitor-access'));
+        return;
+      }
+
       if (notification.href?.startsWith('/areas-comunes')) {
         navigation.replace(resolveAccessibleRoute('common-areas'));
         return;

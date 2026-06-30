@@ -104,6 +104,7 @@ export interface NotificationViewModel {
     | 'megaphone-outline'
     | 'ticket-outline'
     | 'calendar-outline'
+    | 'shield-checkmark-outline'
     | 'alert-circle-outline';
   accentClassName: string;
   iconColor: string;

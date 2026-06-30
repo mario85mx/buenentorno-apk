@@ -711,6 +711,14 @@ export function mapNotificationToViewModel(
         accentClassName: 'bg-success/10',
         iconColor: '#83A96A',
       };
+    case 'VISITOR_ACCESS_APPROVED':
+    case 'VISITOR_ACCESS_ENTRY_REGISTERED':
+      return {
+        ...baseNotification,
+        icon: 'shield-checkmark-outline',
+        accentClassName: 'bg-[#E8EEF9]',
+        iconColor: '#3E63B8',
+      };
     case 'COMMON_AREA_RESERVATION_CREATED':
     case 'COMMON_AREA_RESERVATION_APPROVED':
       return {
