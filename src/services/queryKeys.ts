@@ -11,4 +11,6 @@ export const queryKeys = {
     ['common-area-reservations', commonAreaId ?? 'all'] as const,
   tickets: ['tickets'] as const,
   ticketDetail: (ticketId: string | number) => ['tickets', ticketId] as const,
+  visitorAccessMine: ['visitor-access', 'mine'] as const,
+  visitorAccessToday: ['visitor-access', 'operator', 'today'] as const,
 };

@@ -743,6 +743,8 @@ export function mapRoleLabel(role: UserRole) {
       return 'Superadministrador';
     case 'CONDO_ADMIN':
       return 'Administrador';
+    case 'ACCESS_OPERATOR':
+      return 'Operador de accesos';
     case 'VIGILANCIA':
       return 'Vigilancia';
     default:

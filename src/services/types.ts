@@ -1,4 +1,18 @@
-export type UserRole = 'USER' | 'SUPERADMIN' | 'CONDO_ADMIN' | 'VIGILANCIA';
+export type UserRole =
+  | 'USER'
+  | 'SUPERADMIN'
+  | 'CONDO_ADMIN'
+  | 'VIGILANCIA'
+  | 'ACCESS_OPERATOR';
+export type CondominiumModule =
+  | 'NOTICES'
+  | 'SURVEYS'
+  | 'COMMON_AREAS'
+  | 'VISITOR_ACCESS'
+  | 'TICKETS'
+  | 'BULK_UPLOAD'
+  | 'REPORTS'
+  | 'TRANSPARENCY';
 export type ChargeType = 'MAINTENANCE' | 'WATER' | 'FINE' | 'DEBT' | 'OTHER';
 export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'DEPOSIT' | 'OTHER';
 export type ReceiptStatusCode = 'NOT_SENT' | 'PENDING_REVIEW' | 'APPROVED';
@@ -23,6 +37,8 @@ export type NotificationType =
 export interface AuthUserCondominium {
   id: number;
   name: string;
+  activeModules: CondominiumModule[];
+  enabledVisitorAccessTypes: VisitorAccessType[];
 }
 
 export interface AuthUser {
@@ -432,5 +448,155 @@ export interface CreateCommonAreaReservationPayload {
   unitId: number;
   startAt: string;
   endAt: string;
+  notes?: string;
+}
+
+export type VisitorAccessType =
+  | 'VISITOR'
+  | 'PROVIDER'
+  | 'DELIVERY'
+  | 'MOVE'
+  | 'MAINTENANCE'
+  | 'RIDE_SERVICE'
+  | 'OTHER';
+
+export type VisitorAccessStatus =
+  | 'PENDING_APPROVAL'
+  | 'ACTIVE'
+  | 'USED'
+  | 'CANCELLED'
+  | 'EXPIRED'
+  | 'REJECTED';
+
+export interface VisitorAccessVehicleDto {
+  plate?: string | null;
+  brand?: string | null;
+  color?: string | null;
+}
+
+export interface VisitorAccessResidentSummaryDto {
+  id: number;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+}
+
+export interface VisitorAccessUserSummaryDto {
+  id: number;
+  name: string;
+  email: string;
+  role: UserRole;
+}
+
+export interface VisitorAccessUnitSummaryDto {
+  id: number;
+  houseNumber: string;
+  street?: string | null;
+}
+
+export interface VisitorAccessLogDto {
+  id: number;
+  entryAt?: string | null;
+  exitAt?: string | null;
+  entryGuardName?: string | null;
+  exitGuardName?: string | null;
+  entryNotes?: string | null;
+  exitNotes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VisitorAccessLogAccessSummaryDto {
+  id: number;
+  visitorName: string;
+  visitType: VisitorAccessType;
+  visitorPhone?: string | null;
+  companyName?: string | null;
+  trackingNumber?: string | null;
+  peopleCount?: number | null;
+  status: VisitorAccessStatus;
+  validFrom: string;
+  validTo: string;
+  unit: VisitorAccessUnitSummaryDto;
+  resident?: VisitorAccessResidentSummaryDto | null;
+  createdBy: VisitorAccessUserSummaryDto;
+  vehicle: VisitorAccessVehicleDto;
+}
+
+export interface VisitorAccessLogEntryDto extends VisitorAccessLogDto {
+  access: VisitorAccessLogAccessSummaryDto;
+}
+
+export interface VisitorAccessLogsResponse {
+  data: VisitorAccessLogEntryDto[];
+}
+
+export interface VisitorAccessDto {
+  id: number;
+  visitorName: string;
+  visitType: VisitorAccessType;
+  visitorPhone?: string | null;
+  companyName?: string | null;
+  trackingNumber?: string | null;
+  peopleCount?: number | null;
+  vehicle: VisitorAccessVehicleDto;
+  validFrom: string;
+  validTo: string;
+  status: VisitorAccessStatus;
+  rejectionReason?: string | null;
+  unit: VisitorAccessUnitSummaryDto;
+  resident?: VisitorAccessResidentSummaryDto | null;
+  createdBy: VisitorAccessUserSummaryDto;
+  log?: VisitorAccessLogDto | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VisitorAccessCreatedDto extends VisitorAccessDto {
+  qrToken: string;
+}
+
+export interface VisitorAccessListResponse {
+  data: VisitorAccessDto[];
+}
+
+export interface CreateVisitorAccessPayload {
+  visitorName: string;
+  visitType: VisitorAccessType;
+  visitorPhone?: string;
+  companyName?: string;
+  trackingNumber?: string;
+  peopleCount?: number;
+  vehiclePlate?: string;
+  vehicleBrand?: string;
+  vehicleColor?: string;
+  validFrom: string;
+  validTo: string;
+}
+
+export interface ValidateVisitorAccessPayload {
+  qrToken: string;
+}
+
+export interface ValidateVisitorAccessResponse {
+  accessId: number;
+  unit: string;
+  unitStreet?: string | null;
+  visitorName: string;
+  visitType: VisitorAccessType;
+  visitorPhone?: string | null;
+  companyName?: string | null;
+  trackingNumber?: string | null;
+  peopleCount?: number | null;
+  vehicle: VisitorAccessVehicleDto;
+  validFrom: string;
+  validTo: string;
+  status: VisitorAccessStatus;
+  resident?: VisitorAccessResidentSummaryDto | null;
+  createdBy: VisitorAccessUserSummaryDto;
+}
+
+export interface RegisterVisitorAccessPayload {
+  guardName: string;
   notes?: string;
 }

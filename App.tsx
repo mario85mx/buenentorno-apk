@@ -40,9 +40,12 @@ import ReceiptSubmissionConfirmation from './src/screens/ReceiptSubmissionConfir
 import TicketDetail from './src/screens/TicketDetail';
 import Tickets from './src/screens/Tickets';
 import UploadReceipt from './src/screens/UploadReceipt';
+import VisitorAccess from './src/screens/VisitorAccess';
+import VisitorAccessPassDetail from './src/screens/VisitorAccessPassDetail';
 import { setApiAccessToken } from './src/services/api';
 import { forgotPassword, getMe, login } from './src/services/auth';
 import { getCommonAreas } from './src/services/commonAreas';
+import { isCondominiumModuleEnabled } from './src/services/condominiumModules';
 import { getNotifications } from './src/services/condomino';
 import { isUnauthorizedError } from './src/services/error';
 import {
@@ -57,7 +60,12 @@ import {
   storeNotificationSeenAt,
   storeSession,
 } from './src/services/storage';
-import type { AuthResponse, LoginPayload } from './src/services/types';
+import type {
+  AuthResponse,
+  LoginPayload,
+  AuthUser,
+  VisitorAccessCreatedDto,
+} from './src/services/types';
 import type {
   Notice,
   NotificationViewModel,
@@ -72,7 +80,8 @@ type RootRouteName =
   | 'notifications'
   | 'avisos'
   | 'encuestas'
-  | 'tickets';
+  | 'tickets'
+  | 'visitor-access';
 
 type AppStackParamList = {
   home: { tab?: 'movimientos' | 'comprobantes' } | undefined;
@@ -90,11 +99,17 @@ type AppStackParamList = {
   'encuesta-detail': { surveyId: number };
   'ticket-detail': { ticketId: string };
   'new-ticket': undefined;
+  'visitor-access': undefined;
+  'visitor-access-pass': { access: VisitorAccessCreatedDto };
 };
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
 function getActiveMenuKey(routeName: RootRouteName) {
+  if (routeName === 'visitor-access') {
+    return 'accesos';
+  }
+
   if (routeName === 'common-areas') {
     return 'areas-comunes';
   }
@@ -114,6 +129,20 @@ function getActiveMenuKey(routeName: RootRouteName) {
   return 'inicio';
 }
 
+function RedirectToRoute({
+  navigation,
+  routeName,
+}: {
+  navigation: NativeStackNavigationProp<AppStackParamList>;
+  routeName: RootRouteName;
+}) {
+  useEffect(() => {
+    navigation.replace(routeName);
+  }, [navigation, routeName]);
+
+  return null;
+}
+
 function AppShell() {
   const [session, setSession] = useState<AuthResponse | null>(null);
   const [authScreen, setAuthScreen] = useState<'login' | 'recovery'>('login');
@@ -121,6 +150,7 @@ function AppShell() {
   const [notificationsSeenAt, setNotificationsSeenAt] = useState<string | null>(null);
   const [isHomeRefreshing, setIsHomeRefreshing] = useState(false);
   const isAuthenticated = !!session?.accessToken;
+  const isAccessOperator = session?.user.role === 'ACCESS_OPERATOR';
   const queryClient = useQueryClient();
 
   const handleLogout = useCallback(async () => {
@@ -159,6 +189,38 @@ function AppShell() {
     retry: false,
   });
 
+  const currentAuthUser = useMemo<AuthUser | null>(
+    () => meQuery.data ?? session?.user ?? null,
+    [meQuery.data, session?.user],
+  );
+
+  const visitorAccessModuleEnabled = isCondominiumModuleEnabled(
+    currentAuthUser,
+    'VISITOR_ACCESS',
+  );
+  const commonAreasModuleEnabled = isCondominiumModuleEnabled(
+    currentAuthUser,
+    'COMMON_AREAS',
+  );
+  const noticesModuleEnabled = isCondominiumModuleEnabled(
+    currentAuthUser,
+    'NOTICES',
+  );
+  const surveysModuleEnabled = isCondominiumModuleEnabled(
+    currentAuthUser,
+    'SURVEYS',
+  );
+  const ticketsModuleEnabled = isCondominiumModuleEnabled(
+    currentAuthUser,
+    'TICKETS',
+  );
+  const operatorFallbackRoute: RootRouteName = visitorAccessModuleEnabled
+    ? 'visitor-access'
+    : 'account';
+  const defaultRootRoute: RootRouteName = isAccessOperator
+    ? operatorFallbackRoute
+    : 'home';
+
   const notificationsQuery = useQuery({
     queryKey: queryKeys.notifications,
     queryFn: getNotifications,
@@ -168,11 +230,11 @@ function AppShell() {
   const commonAreasQuery = useQuery({
     queryKey: queryKeys.commonAreas,
     queryFn: getCommonAreas,
-    enabled: isSessionReady && isAuthenticated,
+    enabled: isSessionReady && isAuthenticated && commonAreasModuleEnabled,
     staleTime: 60_000,
   });
   const shouldShowCommonAreasMenu = useMemo(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !commonAreasModuleEnabled) {
       return false;
     }
 
@@ -181,7 +243,49 @@ function AppShell() {
     }
 
     return true;
-  }, [commonAreasQuery.data?.length, commonAreasQuery.isSuccess, isAuthenticated]);
+  }, [
+    commonAreasModuleEnabled,
+    commonAreasQuery.data?.length,
+    commonAreasQuery.isSuccess,
+    isAuthenticated,
+  ]);
+
+  const visibleMenuKeys = useMemo(() => {
+    if (isAccessOperator) {
+      return visitorAccessModuleEnabled ? ['accesos'] : [];
+    }
+
+    const keys = ['inicio'];
+
+    if (visitorAccessModuleEnabled) {
+      keys.push('accesos');
+    }
+
+    if (shouldShowCommonAreasMenu) {
+      keys.push('areas-comunes');
+    }
+
+    if (noticesModuleEnabled) {
+      keys.push('avisos');
+    }
+
+    if (surveysModuleEnabled) {
+      keys.push('encuestas');
+    }
+
+    if (ticketsModuleEnabled) {
+      keys.push('tickets');
+    }
+
+    return keys;
+  }, [
+    isAccessOperator,
+    noticesModuleEnabled,
+    shouldShowCommonAreasMenu,
+    surveysModuleEnabled,
+    ticketsModuleEnabled,
+    visitorAccessModuleEnabled,
+  ]);
 
   useEffect(() => {
     if (!meQuery.data || !session) {
@@ -270,6 +374,55 @@ function AppShell() {
     await storeNotificationSeenAt(userId, latestCreatedAt);
   }, [notificationsQuery.data, session?.user.id]);
 
+  const isRootRouteAccessible = useCallback(
+    (routeName: RootRouteName) => {
+      if (routeName === 'visitor-access') {
+        return visitorAccessModuleEnabled;
+      }
+
+      if (routeName === 'common-areas') {
+        return shouldShowCommonAreasMenu;
+      }
+
+      if (routeName === 'avisos') {
+        return noticesModuleEnabled;
+      }
+
+      if (routeName === 'encuestas') {
+        return surveysModuleEnabled;
+      }
+
+      if (routeName === 'tickets') {
+        return ticketsModuleEnabled;
+      }
+
+      return true;
+    },
+    [
+      noticesModuleEnabled,
+      shouldShowCommonAreasMenu,
+      surveysModuleEnabled,
+      ticketsModuleEnabled,
+      visitorAccessModuleEnabled,
+    ],
+  );
+
+  const resolveAccessibleRoute = useCallback(
+    (routeName: RootRouteName) => {
+      if (isRootRouteAccessible(routeName)) {
+        return routeName;
+      }
+
+      return isAccessOperator ? operatorFallbackRoute : defaultRootRoute;
+    },
+    [
+      defaultRootRoute,
+      isAccessOperator,
+      isRootRouteAccessible,
+      operatorFallbackRoute,
+    ],
+  );
+
   const openHomeTab = useCallback(
     (
       navigation: NativeStackNavigationProp<AppStackParamList>,
@@ -294,6 +447,11 @@ function AppShell() {
           const noticeId = Number(hrefMatch[1]);
 
           if (!Number.isNaN(noticeId)) {
+            if (!noticesModuleEnabled) {
+              navigation.replace(resolveAccessibleRoute(defaultRootRoute));
+              return;
+            }
+
             try {
               const notice = await getNotice(noticeId);
               navigation.navigate('aviso-detail', {
@@ -307,7 +465,7 @@ function AppShell() {
           }
         }
 
-        navigation.replace('avisos');
+        navigation.replace(resolveAccessibleRoute('avisos'));
         return;
       }
 
@@ -326,7 +484,7 @@ function AppShell() {
       }
 
       if (notification.href?.startsWith('/areas-comunes')) {
-        navigation.replace('common-areas');
+        navigation.replace(resolveAccessibleRoute('common-areas'));
         return;
       }
 
@@ -334,18 +492,24 @@ function AppShell() {
         notification.href?.startsWith('/encuestas') ||
         notification.href?.startsWith('/surveys')
       ) {
-        navigation.replace('encuestas');
+        navigation.replace(resolveAccessibleRoute('encuestas'));
         return;
       }
 
       if (notification.href?.startsWith('/tickets')) {
-        navigation.replace('tickets');
+        navigation.replace(resolveAccessibleRoute('tickets'));
         return;
       }
 
-      navigation.replace('home');
+      navigation.replace(resolveAccessibleRoute(defaultRootRoute));
     },
-    [markNotificationsAsSeen, openHomeTab],
+    [
+      defaultRootRoute,
+      markNotificationsAsSeen,
+      noticesModuleEnabled,
+      openHomeTab,
+      resolveAccessibleRoute,
+    ],
   );
 
   const handleLogin = useCallback(async (credentials: LoginPayload) => {
@@ -401,11 +565,13 @@ function AppShell() {
       const activeMenuKey = getActiveMenuKey(routeName);
 
       const replaceRoot = (target: RootRouteName) => {
-        if (routeName === target) {
+        const nextRoute = resolveAccessibleRoute(target);
+
+        if (routeName === nextRoute) {
           return;
         }
 
-        navigation.replace(target);
+        navigation.replace(nextRoute);
       };
 
       return (
@@ -417,7 +583,7 @@ function AppShell() {
           notificationCount={unreadNotificationsCount}
           onAvisosPress={() => replaceRoot('avisos')}
           onCommonAreasPress={() => replaceRoot('common-areas')}
-          onHomePress={() => replaceRoot('home')}
+          onHomePress={() => replaceRoot(defaultRootRoute)}
           onNotificationsPress={() => {
             void markNotificationsAsSeen();
             replaceRoot('notifications');
@@ -429,19 +595,26 @@ function AppShell() {
           onProfilePress={() => replaceRoot('account')}
           onSurveysPress={() => replaceRoot('encuestas')}
           onTicketsPress={() => replaceRoot('tickets')}
+          onVisitorAccessPress={() => replaceRoot('visitor-access')}
           onRefresh={options?.onRefresh}
           refreshing={options?.refreshing}
+          menuVariant={isAccessOperator ? 'operator' : 'resident'}
           showCommonAreasMenu={shouldShowCommonAreasMenu}
+          visibleMenuKeys={visibleMenuKeys}
         >
           {content}
         </Layout>
       );
     },
     [
+      defaultRootRoute,
       handleLogout,
+      isAccessOperator,
       markNotificationsAsSeen,
+      resolveAccessibleRoute,
       shouldShowCommonAreasMenu,
       unreadNotificationsCount,
+      visibleMenuKeys,
     ],
   );
 
@@ -474,7 +647,7 @@ function AppShell() {
       {isAuthenticated ? (
         <NavigationContainer>
           <Stack.Navigator
-            initialRouteName="home"
+            initialRouteName={defaultRootRoute}
             screenOptions={{
               headerShown: false,
               contentStyle: { backgroundColor: '#F6F3FA' },
@@ -488,28 +661,74 @@ function AppShell() {
                   navigation,
                   'home',
                   route.key,
-                  <Home
-                    initialTab={route.params?.tab}
-                    onOpenPaymentTransactionDetail={(transaction) =>
-                      navigation.navigate('payment-transaction-detail', {
-                        transaction,
-                      })
-                    }
-                    onOpenPaymentReceiptDetail={(receipt) =>
-                      navigation.navigate('payment-receipt-detail', {
-                        receipt,
-                      })
-                    }
-                    onOpenUploadReceipt={() =>
-                      navigation.navigate('upload-receipt')
-                    }
-                  />,
+                  isAccessOperator ? (
+                    visitorAccessModuleEnabled ? (
+                      <VisitorAccess
+                        role={session?.user.role}
+                        onUnauthorized={() => {
+                          void handleLogout();
+                          setAuthScreen('login');
+                        }}
+                      />
+                    ) : (
+                      <RedirectToRoute
+                        navigation={navigation}
+                        routeName={resolveAccessibleRoute(defaultRootRoute)}
+                      />
+                    )
+                  ) : (
+                    <Home
+                      initialTab={route.params?.tab}
+                      onOpenPaymentTransactionDetail={(transaction) =>
+                        navigation.navigate('payment-transaction-detail', {
+                          transaction,
+                        })
+                      }
+                      onOpenPaymentReceiptDetail={(receipt) =>
+                        navigation.navigate('payment-receipt-detail', {
+                          receipt,
+                        })
+                      }
+                      onOpenUploadReceipt={() =>
+                        navigation.navigate('upload-receipt')
+                      }
+                    />
+                  ),
                   {
-                    onRefresh: () => {
-                      void handleHomeRefresh();
-                    },
-                    refreshing: isHomeRefreshing,
+                    onRefresh: isAccessOperator
+                      ? undefined
+                      : () => {
+                          void handleHomeRefresh();
+                        },
+                    refreshing: isAccessOperator ? false : isHomeRefreshing,
                   },
+                )
+              }
+            </Stack.Screen>
+
+            <Stack.Screen name="visitor-access">
+              {({ navigation, route }) =>
+                renderLayout(
+                  navigation,
+                  'visitor-access',
+                  route.key,
+                  visitorAccessModuleEnabled ? (
+                    <VisitorAccess
+                      onCreatedAccess={(access) =>
+                        navigation.navigate('visitor-access-pass', { access })
+                      }
+                      role={session?.user.role}
+                      onUnauthorized={() => {
+                        void handleLogout();
+                        setAuthScreen('login');
+                      }}
+                    />
+                  ) : (
+                    <RedirectToRoute
+                      navigation={navigation}
+                      routeName={resolveAccessibleRoute(defaultRootRoute)}
+                    />
+                  ),
                 )
               }
             </Stack.Screen>
@@ -536,7 +755,14 @@ function AppShell() {
                   navigation,
                   'common-areas',
                   route.key,
-                  <CommonAreas />,
+                  shouldShowCommonAreasMenu ? (
+                    <CommonAreas />
+                  ) : (
+                    <RedirectToRoute
+                      navigation={navigation}
+                      routeName={resolveAccessibleRoute(defaultRootRoute)}
+                    />
+                  ),
                 )
               }
             </Stack.Screen>
@@ -548,7 +774,7 @@ function AppShell() {
                   'notifications',
                   route.key,
                   <Notifications
-                    onBack={() => navigation.replace('home')}
+                    onBack={() => navigation.replace(defaultRootRoute)}
                     onMarkAsSeen={() => {
                       void markNotificationsAsSeen();
                     }}
@@ -566,11 +792,18 @@ function AppShell() {
                   navigation,
                   'avisos',
                   route.key,
-                  <Avisos
-                    onOpenNoticeDetail={(notice) =>
-                      navigation.navigate('aviso-detail', { notice })
-                    }
-                  />,
+                  noticesModuleEnabled ? (
+                    <Avisos
+                      onOpenNoticeDetail={(notice) =>
+                        navigation.navigate('aviso-detail', { notice })
+                      }
+                    />
+                  ) : (
+                    <RedirectToRoute
+                      navigation={navigation}
+                      routeName={resolveAccessibleRoute(defaultRootRoute)}
+                    />
+                  ),
                 )
               }
             </Stack.Screen>
@@ -581,11 +814,18 @@ function AppShell() {
                   navigation,
                   'encuestas',
                   route.key,
-                  <Encuestas
-                    onOpenSurveyDetail={(surveyId) =>
-                      navigation.navigate('encuesta-detail', { surveyId })
-                    }
-                  />,
+                  surveysModuleEnabled ? (
+                    <Encuestas
+                      onOpenSurveyDetail={(surveyId) =>
+                        navigation.navigate('encuesta-detail', { surveyId })
+                      }
+                    />
+                  ) : (
+                    <RedirectToRoute
+                      navigation={navigation}
+                      routeName={resolveAccessibleRoute(defaultRootRoute)}
+                    />
+                  ),
                 )
               }
             </Stack.Screen>
@@ -596,14 +836,21 @@ function AppShell() {
                   navigation,
                   'tickets',
                   route.key,
-                  <Tickets
-                    onOpenNewTicket={() => navigation.navigate('new-ticket')}
-                    onOpenTicketDetail={(ticket) =>
-                      navigation.navigate('ticket-detail', {
-                        ticketId: ticket.id,
-                      })
-                    }
-                  />,
+                  ticketsModuleEnabled ? (
+                    <Tickets
+                      onOpenNewTicket={() => navigation.navigate('new-ticket')}
+                      onOpenTicketDetail={(ticket) =>
+                        navigation.navigate('ticket-detail', {
+                          ticketId: ticket.id,
+                        })
+                      }
+                    />
+                  ) : (
+                    <RedirectToRoute
+                      navigation={navigation}
+                      routeName={resolveAccessibleRoute(defaultRootRoute)}
+                    />
+                  ),
                 )
               }
             </Stack.Screen>
@@ -689,10 +936,17 @@ function AppShell() {
                   navigation,
                   'avisos',
                   route.key,
-                  <AvisoDetail
-                    notice={route.params.notice}
-                    onBack={() => navigation.goBack()}
-                  />,
+                  noticesModuleEnabled ? (
+                    <AvisoDetail
+                      notice={route.params.notice}
+                      onBack={() => navigation.goBack()}
+                    />
+                  ) : (
+                    <RedirectToRoute
+                      navigation={navigation}
+                      routeName={resolveAccessibleRoute(defaultRootRoute)}
+                    />
+                  ),
                 )
               }
             </Stack.Screen>
@@ -706,10 +960,17 @@ function AppShell() {
                   navigation,
                   'encuestas',
                   route.key,
-                  <EncuestaDetail
-                    surveyId={route.params.surveyId}
-                    onBack={() => navigation.goBack()}
-                  />,
+                  surveysModuleEnabled ? (
+                    <EncuestaDetail
+                      surveyId={route.params.surveyId}
+                      onBack={() => navigation.goBack()}
+                    />
+                  ) : (
+                    <RedirectToRoute
+                      navigation={navigation}
+                      routeName={resolveAccessibleRoute(defaultRootRoute)}
+                    />
+                  ),
                 )
               }
             </Stack.Screen>
@@ -723,10 +984,17 @@ function AppShell() {
                   navigation,
                   'tickets',
                   route.key,
-                  <TicketDetail
-                    ticketId={route.params.ticketId}
-                    onBack={() => navigation.goBack()}
-                  />,
+                  ticketsModuleEnabled ? (
+                    <TicketDetail
+                      ticketId={route.params.ticketId}
+                      onBack={() => navigation.goBack()}
+                    />
+                  ) : (
+                    <RedirectToRoute
+                      navigation={navigation}
+                      routeName={resolveAccessibleRoute(defaultRootRoute)}
+                    />
+                  ),
                 )
               }
             </Stack.Screen>
@@ -740,12 +1008,43 @@ function AppShell() {
                   navigation,
                   'tickets',
                   route.key,
-                  <NewTicket
-                    onBack={() => navigation.goBack()}
-                    onCreated={(ticketId) => {
-                      navigation.replace('ticket-detail', { ticketId });
-                    }}
-                  />,
+                  ticketsModuleEnabled ? (
+                    <NewTicket
+                      onBack={() => navigation.goBack()}
+                      onCreated={(ticketId) => {
+                        navigation.replace('ticket-detail', { ticketId });
+                      }}
+                    />
+                  ) : (
+                    <RedirectToRoute
+                      navigation={navigation}
+                      routeName={resolveAccessibleRoute(defaultRootRoute)}
+                    />
+                  ),
+                )
+              }
+            </Stack.Screen>
+
+            <Stack.Screen
+              name="visitor-access-pass"
+              options={{ animation: 'slide_from_right' }}
+            >
+              {({ navigation, route }) =>
+                renderLayout(
+                  navigation,
+                  'visitor-access',
+                  route.key,
+                  visitorAccessModuleEnabled ? (
+                    <VisitorAccessPassDetail
+                      access={route.params.access}
+                      onBack={() => navigation.goBack()}
+                    />
+                  ) : (
+                    <RedirectToRoute
+                      navigation={navigation}
+                      routeName={resolveAccessibleRoute(defaultRootRoute)}
+                    />
+                  ),
                 )
               }
             </Stack.Screen>

@@ -32,7 +32,20 @@
         }
       ],
       "expo-font",
-      "expo-image-picker"
+      "expo-image-picker",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Buen Entorno necesita acceso a la cámara para escanear códigos QR de acceso."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Buen Entorno necesita acceso a tus fotos para guardar la imagen del pase de acceso.",
+          "savePhotosPermission": "Buen Entorno necesita permiso para guardar la imagen del pase en tu galería."
+        }
+      ]
     ],
     "extra": {
       "eas": {

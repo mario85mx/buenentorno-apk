@@ -14,7 +14,9 @@ import Sidebar, { SidebarItem } from './Sidebar';
 export interface LayoutProps {
   children: ReactNode;
   contentKey?: string;
+  menuVariant?: 'resident' | 'operator';
   onHomePress?: () => void;
+  onVisitorAccessPress?: () => void;
   onCommonAreasPress?: () => void;
   onAvisosPress?: () => void;
   onSurveysPress?: () => void;
@@ -29,6 +31,7 @@ export interface LayoutProps {
   refreshing?: boolean;
   onRefresh?: () => void;
   showCommonAreasMenu?: boolean;
+  visibleMenuKeys?: string[];
 }
 
 const sidebarItems: SidebarItem[] = [
@@ -36,6 +39,11 @@ const sidebarItems: SidebarItem[] = [
     key: 'inicio',
     label: 'Inicio',
     icon: { library: 'ionicons', name: 'home-outline' },
+  },
+  {
+    key: 'accesos',
+    label: 'Accesos',
+    icon: { library: 'material-icons', name: 'qr-code-scanner' },
   },
   {
     key: 'areas-comunes',
@@ -61,14 +69,29 @@ const sidebarItems: SidebarItem[] = [
 
 const navbarItems: NavbarItem[] = [
   { key: 'inicio', label: 'Inicio', icon: 'home-outline' },
+  { key: 'accesos', label: 'Accesos', icon: 'qr-code-outline' },
   { key: 'avisos', label: 'Avisos', icon: 'pulse-outline' },
   { key: 'tickets', label: 'Tickets', icon: 'ticket-outline' },
+];
+
+const operatorSidebarItems: SidebarItem[] = [
+  {
+    key: 'accesos',
+    label: 'Accesos',
+    icon: { library: 'material-icons', name: 'qr-code-scanner' },
+  },
+];
+
+const operatorNavbarItems: NavbarItem[] = [
+  { key: 'accesos', label: 'Accesos', icon: 'qr-code-outline' },
 ];
 
 export default function Layout({
   children,
   contentKey,
+  menuVariant = 'resident',
   onHomePress,
+  onVisitorAccessPress,
   onCommonAreasPress,
   onAvisosPress,
   onSurveysPress,
@@ -83,6 +106,7 @@ export default function Layout({
   refreshing = false,
   onRefresh,
   showCommonAreasMenu = true,
+  visibleMenuKeys,
 }: LayoutProps) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -118,20 +142,74 @@ export default function Layout({
     () => (isDesktop ? 'ml-72' : ''),
     [isDesktop],
   );
+  const isOperatorMenu = menuVariant === 'operator';
+  const allowedMenuKeys = useMemo(
+    () => (visibleMenuKeys ? new Set(visibleMenuKeys) : null),
+    [visibleMenuKeys],
+  );
   const visibleSidebarItems = useMemo(
-    () =>
-      showCommonAreasMenu
-        ? sidebarItems
-        : sidebarItems.filter((item) => item.key !== 'areas-comunes'),
-    [showCommonAreasMenu],
+    () => {
+      const items = isOperatorMenu ? operatorSidebarItems : sidebarItems;
+      const commonAreasFiltered = showCommonAreasMenu
+        ? items
+        : items.filter((item) => item.key !== 'areas-comunes');
+
+      if (!allowedMenuKeys) {
+        return commonAreasFiltered;
+      }
+
+      return commonAreasFiltered.filter((item) => allowedMenuKeys.has(item.key));
+    },
+    [allowedMenuKeys, isOperatorMenu, showCommonAreasMenu],
   );
   const visibleNavbarItems = useMemo(
-    () =>
-      showCommonAreasMenu
+    () => {
+      if (isOperatorMenu) {
+        if (!allowedMenuKeys) {
+          return operatorNavbarItems;
+        }
+
+        return operatorNavbarItems.filter((item) => allowedMenuKeys.has(item.key));
+      }
+
+      const commonAreasFiltered = showCommonAreasMenu
         ? navbarItems
-        : navbarItems.filter((item) => item.key !== 'areas-comunes'),
-    [showCommonAreasMenu],
+        : navbarItems.filter((item) => item.key !== 'areas-comunes');
+
+      if (!allowedMenuKeys) {
+        return commonAreasFiltered;
+      }
+
+      return commonAreasFiltered.filter((item) => allowedMenuKeys.has(item.key));
+    },
+    [allowedMenuKeys, isOperatorMenu, showCommonAreasMenu],
   );
+
+  const handleSelectItem = (key: string) => {
+    if (key === 'accesos') {
+      onVisitorAccessPress?.();
+    }
+
+    if (key === 'inicio') {
+      onHomePress?.();
+    }
+
+    if (key === 'areas-comunes') {
+      onCommonAreasPress?.();
+    }
+
+    if (key === 'avisos') {
+      onAvisosPress?.();
+    }
+
+    if (key === 'encuestas') {
+      onSurveysPress?.();
+    }
+
+    if (key === 'tickets') {
+      onTicketsPress?.();
+    }
+  };
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-primary">
@@ -156,21 +234,7 @@ export default function Layout({
                 onLogout={onLogout}
                 onSelectItem={(key) => {
                   setActiveSidebarItem(key);
-                  if (key === 'inicio') {
-                    onHomePress?.();
-                  }
-                  if (key === 'areas-comunes') {
-                    onCommonAreasPress?.();
-                  }
-                  if (key === 'avisos') {
-                    onAvisosPress?.();
-                  }
-                  if (key === 'encuestas') {
-                    onSurveysPress?.();
-                  }
-                  if (key === 'tickets') {
-                    onTicketsPress?.();
-                  }
+                  handleSelectItem(key);
                   if (!isDesktop) {
                     setIsSidebarOpen(false);
                   }
@@ -239,21 +303,7 @@ export default function Layout({
                 items={visibleNavbarItems}
                 onSelectItem={(key) => {
                   setActiveNavbarItem(key);
-                  if (key === 'inicio') {
-                    onHomePress?.();
-                  }
-                  if (key === 'areas-comunes') {
-                    onCommonAreasPress?.();
-                  }
-                  if (key === 'avisos') {
-                    onAvisosPress?.();
-                  }
-                  if (key === 'encuestas') {
-                    onSurveysPress?.();
-                  }
-                  if (key === 'tickets') {
-                    onTicketsPress?.();
-                  }
+                  handleSelectItem(key);
                 }}
               />
             </View>
