@@ -7,7 +7,8 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mario85mx.buenentornoapp"
     },
     "android": {
       "adaptiveIcon": {
@@ -33,6 +34,14 @@
       ],
       "expo-font",
       "expo-image-picker",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-monochrome.png",
+          "color": "#18052E",
+          "defaultChannel": "default"
+        }
+      ],
       [
         "expo-camera",
         {

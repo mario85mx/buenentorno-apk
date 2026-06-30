@@ -81,6 +81,11 @@ export interface UpdateMePayload {
   email?: string;
 }
 
+export interface RegisterPushTokenPayload {
+  token: string;
+  platform: 'android' | 'ios';
+}
+
 export interface DebtBreakdown {
   maintenance: number;
   water: number;

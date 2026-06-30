@@ -5,6 +5,7 @@ import type {
   ForgotPasswordPayload,
   ForgotPasswordResponse,
   LoginPayload,
+  RegisterPushTokenPayload,
   UpdateMePayload,
 } from './types';
 
@@ -31,3 +32,17 @@ export async function updateMe(payload: UpdateMePayload) {
   return data;
 }
 
+export async function registerPushToken(payload: RegisterPushTokenPayload) {
+  const { data } = await api.post<{ success: boolean }>(
+    '/auth/push-tokens',
+    payload,
+  );
+  return data;
+}
+
+export async function unregisterPushToken(token: string) {
+  const { data } = await api.delete<{ success: boolean }>('/auth/push-tokens', {
+    data: { token },
+  });
+  return data;
+}

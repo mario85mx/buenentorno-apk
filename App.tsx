@@ -13,14 +13,20 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { NavigationContainer } from '@react-navigation/native';
+import {
+  NavigationContainer,
+  StackActions,
+  useNavigationContainerRef,
+} from '@react-navigation/native';
 import {
   createNativeStackNavigator,
   type NativeStackNavigationProp,
 } from '@react-navigation/native-stack';
 import { useFonts } from 'expo-font';
+import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Layout from './src/components/organisms/Layout';
 import Account from './src/screens/Account';
@@ -32,7 +38,7 @@ import Encuestas from './src/screens/Encuestas';
 import Home from './src/screens/Home';
 import Login from './src/screens/Login';
 import NewTicket from './src/screens/NewTicket';
-import Notifications from './src/screens/Notifications';
+import NotificationsScreen from './src/screens/Notifications';
 import PaymentReceiptDetail from './src/screens/PaymentReceiptDetail';
 import PaymentTransactionDetail from './src/screens/PaymentTransactionDetail';
 import Recovery from './src/screens/Recovery';
@@ -43,15 +49,24 @@ import UploadReceipt from './src/screens/UploadReceipt';
 import VisitorAccess from './src/screens/VisitorAccess';
 import VisitorAccessPassDetail from './src/screens/VisitorAccessPassDetail';
 import { setApiAccessToken } from './src/services/api';
-import { forgotPassword, getMe, login } from './src/services/auth';
+import {
+  forgotPassword,
+  getMe,
+  login,
+  registerPushToken,
+  unregisterPushToken,
+} from './src/services/auth';
 import { getCommonAreas } from './src/services/commonAreas';
 import { isCondominiumModuleEnabled } from './src/services/condominiumModules';
 import { getNotifications } from './src/services/condomino';
 import { isUnauthorizedError } from './src/services/error';
-import {
-  mapNoticeDtoToViewModel,
-} from './src/services/mappers';
+import { mapNoticeDtoToViewModel } from './src/services/mappers';
 import { getNotice } from './src/services/notices';
+import {
+  getPushNotificationPayload,
+  registerForPushNotificationsAsync,
+  type PushNotificationPayload,
+} from './src/services/pushNotifications';
 import { queryKeys } from './src/services/queryKeys';
 import {
   clearStoredSession,
@@ -105,6 +120,20 @@ type AppStackParamList = {
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
+type NotificationNavigationPayload = Pick<
+  PushNotificationPayload,
+  'notificationId' | 'type' | 'title' | 'message' | 'href' | 'createdAt'
+>;
+
+interface NotificationNavigator {
+  openHomeTab: (tab: 'movimientos' | 'comprobantes') => void;
+  replaceRoot: (routeName: RootRouteName) => void;
+  openNotice: (notice: Notice) => void;
+}
+
+const isPushEnabled =
+  process.env.EXPO_PUBLIC_ENABLE_PUSH?.trim().toLowerCase() === 'true';
+
 function getActiveMenuKey(routeName: RootRouteName) {
   if (routeName === 'visitor-access') {
     return 'accesos';
@@ -147,14 +176,39 @@ function AppShell() {
   const [session, setSession] = useState<AuthResponse | null>(null);
   const [authScreen, setAuthScreen] = useState<'login' | 'recovery'>('login');
   const [isSessionReady, setIsSessionReady] = useState(false);
-  const [notificationsSeenAt, setNotificationsSeenAt] = useState<string | null>(null);
+  const [notificationsSeenAt, setNotificationsSeenAt] = useState<string | null>(
+    null,
+  );
   const [isHomeRefreshing, setIsHomeRefreshing] = useState(false);
+  const [devicePushToken, setDevicePushToken] = useState<string | null>(null);
+  const [isNavigationReady, setIsNavigationReady] = useState(false);
   const isAuthenticated = !!session?.accessToken;
   const isAccessOperator = session?.user.role === 'ACCESS_OPERATOR';
   const queryClient = useQueryClient();
+  const navigationRef = useNavigationContainerRef<AppStackParamList>();
+  const lastHandledPushResponseIdRef = useRef<string | null>(null);
+  const pendingPushResponseRef =
+    useRef<Notifications.NotificationResponse | null>(null);
+  const devicePushTokenRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    devicePushTokenRef.current = devicePushToken;
+  }, [devicePushToken]);
 
   const handleLogout = useCallback(async () => {
+    const currentPushToken = devicePushTokenRef.current;
+
+    if (isPushEnabled && currentPushToken) {
+      try {
+        await unregisterPushToken(currentPushToken);
+      } catch {
+        // Ignore push token cleanup failures during logout.
+      }
+    }
+
     setApiAccessToken(null);
+    setDevicePushToken(null);
+    setIsNavigationReady(false);
     setSession(null);
     await clearStoredSession();
   }, []);
@@ -423,20 +477,44 @@ function AppShell() {
     ],
   );
 
-  const openHomeTab = useCallback(
+  const createScreenNotificationNavigator = useCallback(
     (
       navigation: NativeStackNavigationProp<AppStackParamList>,
-      tab: 'movimientos' | 'comprobantes',
-    ) => {
-      navigation.replace('home', { tab });
-    },
-    [],
+    ): NotificationNavigator => ({
+      openHomeTab: (tab) => {
+        navigation.replace('home', { tab });
+      },
+      replaceRoot: (routeName) => {
+        navigation.replace(resolveAccessibleRoute(routeName));
+      },
+      openNotice: (notice) => {
+        navigation.navigate('aviso-detail', { notice });
+      },
+    }),
+    [resolveAccessibleRoute],
+  );
+
+  const pushNotificationNavigator = useMemo<NotificationNavigator>(
+    () => ({
+      openHomeTab: (tab) => {
+        navigationRef.dispatch(StackActions.replace('home', { tab }));
+      },
+      replaceRoot: (routeName) => {
+        navigationRef.dispatch(
+          StackActions.replace(resolveAccessibleRoute(routeName)),
+        );
+      },
+      openNotice: (notice) => {
+        navigationRef.navigate('aviso-detail', { notice });
+      },
+    }),
+    [navigationRef, resolveAccessibleRoute],
   );
 
   const handleOpenNotification = useCallback(
     async (
-      navigation: NativeStackNavigationProp<AppStackParamList>,
-      notification: NotificationViewModel,
+      navigator: NotificationNavigator,
+      notification: NotificationNavigationPayload,
     ) => {
       await markNotificationsAsSeen();
 
@@ -448,29 +526,27 @@ function AppShell() {
 
           if (!Number.isNaN(noticeId)) {
             if (!noticesModuleEnabled) {
-              navigation.replace(resolveAccessibleRoute(defaultRootRoute));
+              navigator.replaceRoot(defaultRootRoute);
               return;
             }
 
             try {
               const notice = await getNotice(noticeId);
-              navigation.navigate('aviso-detail', {
-                notice: mapNoticeDtoToViewModel(notice),
-              });
+              navigator.openNotice(mapNoticeDtoToViewModel(notice));
               return;
             } catch {
-              navigation.replace('avisos');
+              navigator.replaceRoot('avisos');
               return;
             }
           }
         }
 
-        navigation.replace(resolveAccessibleRoute('avisos'));
+        navigator.replaceRoot('avisos');
         return;
       }
 
       if (notification.type === 'NEW_CHARGE') {
-        openHomeTab(navigation, 'movimientos');
+        navigator.openHomeTab('movimientos');
         return;
       }
 
@@ -479,17 +555,17 @@ function AppShell() {
         notification.type === 'PAYMENT_REJECTED' ||
         notification.type === 'PAYMENT_REVIEW'
       ) {
-        openHomeTab(navigation, 'comprobantes');
+        navigator.openHomeTab('comprobantes');
         return;
       }
 
       if (notification.href?.startsWith('/visitor-access')) {
-        navigation.replace(resolveAccessibleRoute('visitor-access'));
+        navigator.replaceRoot('visitor-access');
         return;
       }
 
       if (notification.href?.startsWith('/areas-comunes')) {
-        navigation.replace(resolveAccessibleRoute('common-areas'));
+        navigator.replaceRoot('common-areas');
         return;
       }
 
@@ -497,25 +573,136 @@ function AppShell() {
         notification.href?.startsWith('/encuestas') ||
         notification.href?.startsWith('/surveys')
       ) {
-        navigation.replace(resolveAccessibleRoute('encuestas'));
+        navigator.replaceRoot('encuestas');
         return;
       }
 
       if (notification.href?.startsWith('/tickets')) {
-        navigation.replace(resolveAccessibleRoute('tickets'));
+        navigator.replaceRoot('tickets');
         return;
       }
 
-      navigation.replace(resolveAccessibleRoute(defaultRootRoute));
+      navigator.replaceRoot(defaultRootRoute);
     },
     [
       defaultRootRoute,
       markNotificationsAsSeen,
       noticesModuleEnabled,
-      openHomeTab,
-      resolveAccessibleRoute,
     ],
   );
+
+  const handlePushNotificationResponse = useCallback(
+    async (response: Notifications.NotificationResponse | null) => {
+      if (!response) {
+        return;
+      }
+
+      const responseId = response.notification.request.identifier;
+
+      if (lastHandledPushResponseIdRef.current === responseId) {
+        return;
+      }
+
+      if (!navigationRef.isReady()) {
+        pendingPushResponseRef.current = response;
+        return;
+      }
+
+      lastHandledPushResponseIdRef.current = responseId;
+      pendingPushResponseRef.current = null;
+
+      const payload = getPushNotificationPayload(response);
+
+      if (!payload) {
+        await Notifications.clearLastNotificationResponseAsync();
+        return;
+      }
+
+      await handleOpenNotification(pushNotificationNavigator, payload);
+      await Notifications.clearLastNotificationResponseAsync();
+    },
+    [handleOpenNotification, navigationRef, pushNotificationNavigator],
+  );
+
+  useEffect(() => {
+    if (!isPushEnabled || !isAuthenticated) {
+      return;
+    }
+
+    let isMounted = true;
+
+    void registerForPushNotificationsAsync()
+      .then((token) => {
+        if (!isMounted || !token) {
+          return;
+        }
+
+        setDevicePushToken(token);
+
+        return registerPushToken({
+          token,
+          platform: Platform.OS === 'android' ? 'android' : 'ios',
+        });
+      })
+      .catch(() => {
+        // Ignore registration failures so login flow is not blocked.
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated, session?.user.currentCondominiumId, session?.user.id]);
+
+  useEffect(() => {
+    if (!isPushEnabled || !isAuthenticated) {
+      return;
+    }
+
+    const receivedSubscription =
+      Notifications.addNotificationReceivedListener(() => {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.notifications,
+        });
+      });
+    const responseSubscription =
+      Notifications.addNotificationResponseReceivedListener((response) => {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.notifications,
+        });
+        void handlePushNotificationResponse(response);
+      });
+
+    void Notifications.getLastNotificationResponseAsync().then((response) => {
+      void handlePushNotificationResponse(response);
+    });
+
+    return () => {
+      receivedSubscription.remove();
+      responseSubscription.remove();
+    };
+  }, [handlePushNotificationResponse, isAuthenticated, queryClient]);
+
+  useEffect(() => {
+    if (
+      !isPushEnabled ||
+      !isAuthenticated ||
+      !isNavigationReady ||
+      !navigationRef.isReady()
+    ) {
+      return;
+    }
+
+    if (!pendingPushResponseRef.current) {
+      return;
+    }
+
+    void handlePushNotificationResponse(pendingPushResponseRef.current);
+  }, [
+    handlePushNotificationResponse,
+    isAuthenticated,
+    isNavigationReady,
+    navigationRef,
+  ]);
 
   const handleLogin = useCallback(async (credentials: LoginPayload) => {
     const nextSession = await login(credentials);
@@ -565,7 +752,10 @@ function AppShell() {
       routeName: RootRouteName,
       contentKey: string,
       content: React.ReactNode,
-      options?: Pick<React.ComponentProps<typeof Layout>, 'onRefresh' | 'refreshing'>,
+      options?: Pick<
+        React.ComponentProps<typeof Layout>,
+        'onRefresh' | 'refreshing'
+      >,
     ) => {
       const activeMenuKey = getActiveMenuKey(routeName);
 
@@ -650,7 +840,10 @@ function AppShell() {
   return (
     <>
       {isAuthenticated ? (
-        <NavigationContainer>
+        <NavigationContainer
+          ref={navigationRef}
+          onReady={() => setIsNavigationReady(true)}
+        >
           <Stack.Navigator
             initialRouteName={defaultRootRoute}
             screenOptions={{
@@ -778,13 +971,18 @@ function AppShell() {
                   navigation,
                   'notifications',
                   route.key,
-                  <Notifications
+                  <NotificationsScreen
                     onBack={() => navigation.replace(defaultRootRoute)}
                     onMarkAsSeen={() => {
                       void markNotificationsAsSeen();
                     }}
-                    onOpenNotification={(notification) => {
-                      void handleOpenNotification(navigation, notification);
+                    onOpenNotification={(
+                      notification: NotificationViewModel,
+                    ) => {
+                      void handleOpenNotification(
+                        createScreenNotificationNavigator(navigation),
+                        notification,
+                      );
                     }}
                   />,
                 )
