@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Image, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Card from '../atoms/Card';
+import PrivacyNoticeLink from '../atoms/PrivacyNoticeLink';
 
 export interface AuthShellProps {
   title: string;
@@ -51,6 +52,10 @@ export default function AuthShell({
                 <View className="gap-4">{children}</View>
 
                 {footer ? <View>{footer}</View> : null}
+
+                <View className="items-center pt-2">
+                  <PrivacyNoticeLink />
+                </View>
               </View>
             </Card>
           </View>

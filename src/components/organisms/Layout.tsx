@@ -3,10 +3,12 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
+  Text,
   View,
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import PrivacyNoticeLink from '../atoms/PrivacyNoticeLink';
 import Header from './Header';
 import Navbar, { NavbarItem } from './Navbar';
 import Sidebar, { SidebarItem } from './Sidebar';
@@ -278,6 +280,14 @@ export default function Layout({
             showsVerticalScrollIndicator={false}
           >
             {children}
+
+            <View className="flex-row items-center justify-center gap-2 pb-4 pt-6">
+              <Text className="font-body text-sm text-med-gray">
+                (c) 2026 Buen Entorno
+              </Text>
+              <Text className="font-body text-sm text-med-gray">•</Text>
+              <PrivacyNoticeLink />
+            </View>
           </ScrollView>
 
           {shouldShowNavbar ? (

@@ -61,6 +61,7 @@ export default function Encuestas({ onOpenSurveyDetail }: EncuestasProps) {
                   <View className="flex-row items-start justify-between gap-3">
                     <View className="flex-1 gap-2">
                       <Badge
+                        className="self-start"
                         label={survey.isOpen ? 'Abierta' : 'Cerrada'}
                         variant={surveyStatusVariant(survey.isOpen)}
                       />
