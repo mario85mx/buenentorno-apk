@@ -28,6 +28,7 @@ export interface LayoutProps {
   onLogout?: () => void;
   activeSidebarItemKey?: string;
   activeNavbarItemKey?: string;
+  showNotificationsButton?: boolean;
   hasNotifications?: boolean;
   notificationCount?: number;
   refreshing?: boolean;
@@ -103,6 +104,7 @@ export default function Layout({
   onLogout,
   activeSidebarItemKey,
   activeNavbarItemKey,
+  showNotificationsButton = true,
   hasNotifications = true,
   notificationCount = 0,
   refreshing = false,
@@ -248,6 +250,7 @@ export default function Layout({
 
         <View className={`flex-1 ${contentWidthClass}`}>
           <Header
+            showNotificationsButton={showNotificationsButton}
             hasNotifications={hasNotifications}
             notificationCount={notificationCount}
             onNotificationsPress={onNotificationsPress}

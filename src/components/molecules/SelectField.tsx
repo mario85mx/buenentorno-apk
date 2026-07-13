@@ -86,7 +86,7 @@ export function SelectField({
         footer={
           <Button
             className="bg-secondary"
-            title="Cerrar"
+            title="Aceptar"
             variant="secondary"
             onPress={() => setIsOpen(false)}
           />

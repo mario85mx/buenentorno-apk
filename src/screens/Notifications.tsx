@@ -10,12 +10,14 @@ import { queryKeys } from '../services/queryKeys';
 import type { NotificationViewModel } from '../services/viewModels';
 
 interface NotificationsProps {
+  isAvailable?: boolean;
   onBack?: () => void;
   onOpenNotification?: (notification: NotificationViewModel) => void;
   onMarkAsSeen?: () => void;
 }
 
 export default function Notifications({
+  isAvailable = true,
   onBack,
   onOpenNotification,
   onMarkAsSeen,
@@ -23,6 +25,7 @@ export default function Notifications({
   const notificationsQuery = useQuery({
     queryKey: queryKeys.notifications,
     queryFn: getNotifications,
+    enabled: isAvailable,
     select: (notifications) => notifications.map(mapNotificationToViewModel),
   });
 
@@ -53,7 +56,13 @@ export default function Notifications({
       </View>
 
       <View className="gap-3">
-        {notificationsQuery.isLoading ? (
+        {!isAvailable ? (
+          <Card width="full">
+            <Text className="font-body text-sm text-med-gray">
+              Este perfil no tiene notificaciones disponibles.
+            </Text>
+          </Card>
+        ) : notificationsQuery.isLoading ? (
           <Card width="full">
             <Text className="font-body text-sm text-med-gray">
               Cargando notificaciones...

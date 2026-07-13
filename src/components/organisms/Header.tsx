@@ -12,6 +12,7 @@ export interface HeaderProps {
   onMenuPress?: () => void;
   onProfilePress?: () => void;
   onNotificationsPress?: () => void;
+  showNotificationsButton?: boolean;
   hasNotifications?: boolean;
   notificationCount?: number;
 }
@@ -21,6 +22,7 @@ export default function Header({
   onMenuPress,
   onProfilePress,
   onNotificationsPress,
+  showNotificationsButton = true,
   hasNotifications = true,
   notificationCount = 0,
 }: HeaderProps) {
@@ -46,23 +48,27 @@ export default function Header({
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
-      Animated.sequence([
-        Animated.delay(60),
-        Animated.parallel([
-          Animated.timing(notificationsOpacity, {
-            toValue: 1,
-            duration: 180,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }),
-          Animated.timing(notificationsTranslateX, {
-            toValue: 0,
-            duration: 180,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }),
-        ]),
-      ]),
+      ...(showNotificationsButton
+        ? [
+            Animated.sequence([
+              Animated.delay(60),
+              Animated.parallel([
+                Animated.timing(notificationsOpacity, {
+                  toValue: 1,
+                  duration: 180,
+                  easing: Easing.out(Easing.cubic),
+                  useNativeDriver: true,
+                }),
+                Animated.timing(notificationsTranslateX, {
+                  toValue: 0,
+                  duration: 180,
+                  easing: Easing.out(Easing.cubic),
+                  useNativeDriver: true,
+                }),
+              ]),
+            ]),
+          ]
+        : []),
       Animated.sequence([
         Animated.delay(110),
         Animated.parallel([
@@ -88,10 +94,11 @@ export default function Header({
     notificationsTranslateX,
     profileOpacity,
     profileTranslateX,
+    showNotificationsButton,
   ]);
 
   useEffect(() => {
-    if (!hasNotifications) {
+    if (!showNotificationsButton || !hasNotifications) {
       badgeScale.stopAnimation();
       badgeScale.setValue(1);
       return;
@@ -121,7 +128,7 @@ export default function Header({
       badgeScale.stopAnimation();
       badgeScale.setValue(1);
     };
-  }, [badgeScale, hasNotifications]);
+  }, [badgeScale, hasNotifications, showNotificationsButton]);
 
   return (
     <Animated.View
@@ -146,31 +153,33 @@ export default function Header({
       </View>
 
       <View className="flex-row items-center gap-3">
-        <Pressable
-          accessibilityLabel="Abrir notificaciones"
-          accessibilityRole="button"
-          onPress={onNotificationsPress}
-        >
-          <Animated.View
-            className="relative h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-primary"
-            style={{
-              opacity: notificationsOpacity,
-              transform: [{ translateX: notificationsTranslateX }],
-            }}
+        {showNotificationsButton ? (
+          <Pressable
+            accessibilityLabel="Abrir notificaciones"
+            accessibilityRole="button"
+            onPress={onNotificationsPress}
           >
-            <Ionicons color="#FFFFFF" name="notifications-outline" size={20} />
-            {hasNotifications ? (
-              <Animated.View
-                className="absolute right-0.5 top-0.5 min-h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1"
-                style={{ transform: [{ scale: badgeScale }] }}
-              >
-                <Animated.Text className="font-heading text-[10px] text-white">
-                  {notificationCount > 99 ? '99+' : notificationCount}
-                </Animated.Text>
-              </Animated.View>
-            ) : null}
-          </Animated.View>
-        </Pressable>
+            <Animated.View
+              className="relative h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-primary"
+              style={{
+                opacity: notificationsOpacity,
+                transform: [{ translateX: notificationsTranslateX }],
+              }}
+            >
+              <Ionicons color="#FFFFFF" name="notifications-outline" size={20} />
+              {hasNotifications ? (
+                <Animated.View
+                  className="absolute right-0.5 top-0.5 min-h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1"
+                  style={{ transform: [{ scale: badgeScale }] }}
+                >
+                  <Animated.Text className="font-heading text-[10px] text-white">
+                    {notificationCount > 99 ? '99+' : notificationCount}
+                  </Animated.Text>
+                </Animated.View>
+              ) : null}
+            </Animated.View>
+          </Pressable>
+        ) : null}
 
         <Pressable
           accessibilityLabel="Abrir perfil"

@@ -16,7 +16,7 @@ import {
   cn,
 } from '../components/molecules/fieldShared';
 import { getMyCondominoDetail, reportPayment } from '../services/condomino';
-import { getErrorMessage } from '../services/error';
+import { getErrorMessage, getHttpStatus } from '../services/error';
 import { formatCurrency } from '../services/mappers';
 import { queryKeys } from '../services/queryKeys';
 import type {
@@ -35,7 +35,15 @@ const allowedReceiptMimeTypes = [
   'image/png',
   'application/pdf',
 ] as const;
-const maxReceiptFileSize = 10 * 1024 * 1024;
+const maxReceiptFileSize = 5 * 1024 * 1024;
+
+function getReceiptUploadErrorMessage(error: unknown) {
+  if (getHttpStatus(error) === 413) {
+    return 'No fue posible subir el comprobante. Revisa tu conexión e inténtalo de nuevo.';
+  }
+
+  return getErrorMessage(error, 'No fue posible enviar el comprobante.');
+}
 
 function normalizeReceiptMimeType(
   mimeType?: string | null,
@@ -318,7 +326,7 @@ export default function UploadReceipt({
     }
 
     if (size && size > maxReceiptFileSize) {
-      setErrorMessage('El archivo supera el límite de 10 MB.');
+      setErrorMessage('El archivo supera el peso máximo de 5 MB.');
       return;
     }
 
@@ -450,6 +458,19 @@ export default function UploadReceipt({
               </Text>
             ) : (
               <>
+                <View className="gap-1 rounded-2xl bg-primary px-5 py-4">
+                  <Text className="font-body text-sm text-white/80">
+                    Monto del comprobante
+                  </Text>
+                  <Text className="font-heading text-3xl text-white">
+                    {formatCurrency(remainingReceiptAmount)}
+                  </Text>
+                  <Text className="font-body text-xs text-white/70">
+                    Se calcula automáticamente con los cargos seleccionados y el
+                    saldo a favor aplicado.
+                  </Text>
+                </View>
+
                 <SelectField
                   label="Casa"
                   options={unitOptions}
@@ -463,18 +484,6 @@ export default function UploadReceipt({
                     }
                   }}
                 />
-
-                <FieldShell
-                  disabled
-                  label="Comprobante por subir"
-                  helperText="Se calcula automáticamente según los cargos seleccionados y el saldo a favor aplicado."
-                >
-                  <View className={cn(FIELD_CONTROL_CLASS, 'justify-center')}>
-                    <Text className="font-body-semibold text-base text-primary">
-                      {formatCurrency(remainingReceiptAmount)}
-                    </Text>
-                  </View>
-                </FieldShell>
 
                 <DatePickerField
                   label="Fecha de Pago"
@@ -611,7 +620,7 @@ export default function UploadReceipt({
                       helperText={
                         selectedFile
                           ? 'Archivo listo para enviarse con el comprobante.'
-                          : 'Elige una foto o un archivo JPG, PNG o PDF de hasta 10 MB.'
+                          : 'Elige una foto o un archivo JPG, PNG o PDF. Peso máximo: 5 MB.'
                       }
                       label="Archivo"
                     >
@@ -770,12 +779,7 @@ export default function UploadReceipt({
                       },
                       {
                         onError: (error) => {
-                          setErrorMessage(
-                            getErrorMessage(
-                              error,
-                              'No fue posible enviar el comprobante.',
-                            ),
-                          );
+                          setErrorMessage(getReceiptUploadErrorMessage(error));
                         },
                       },
                     );
@@ -794,7 +798,7 @@ export default function UploadReceipt({
         footer={
           <View className="gap-3">
             <Button
-              title="Cerrar"
+              title="Aceptar"
               variant="secondary"
               onPress={() => setIsChargesOpen(false)}
             />

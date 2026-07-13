@@ -278,7 +278,7 @@ function AppShell() {
   const notificationsQuery = useQuery({
     queryKey: queryKeys.notifications,
     queryFn: getNotifications,
-    enabled: isSessionReady && isAuthenticated,
+    enabled: isSessionReady && isAuthenticated && !isAccessOperator,
     staleTime: 30_000,
   });
   const commonAreasQuery = useQuery({
@@ -774,6 +774,7 @@ function AppShell() {
           activeNavbarItemKey={activeMenuKey}
           activeSidebarItemKey={activeMenuKey}
           contentKey={contentKey}
+          showNotificationsButton={!isAccessOperator}
           hasNotifications={unreadNotificationsCount > 0}
           notificationCount={unreadNotificationsCount}
           onAvisosPress={() => replaceRoot('avisos')}
@@ -972,6 +973,7 @@ function AppShell() {
                   'notifications',
                   route.key,
                   <NotificationsScreen
+                    isAvailable={!isAccessOperator}
                     onBack={() => navigation.replace(defaultRootRoute)}
                     onMarkAsSeen={() => {
                       void markNotificationsAsSeen();

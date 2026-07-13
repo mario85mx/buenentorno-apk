@@ -34,7 +34,8 @@ export type NotificationType =
   | 'COMMON_AREA_RESERVATION_APPROVED'
   | 'TICKET_CREATED'
   | 'TICKET_MESSAGE'
-  | 'NOTICE';
+  | 'NOTICE'
+  | 'SURVEY';
 
 export interface AuthUserCondominium {
   id: number;

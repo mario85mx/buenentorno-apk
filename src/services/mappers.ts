@@ -702,6 +702,13 @@ export function mapNotificationToViewModel(
         accentClassName: 'bg-warning/10',
         iconColor: '#C59D2D',
       };
+    case 'SURVEY':
+      return {
+        ...baseNotification,
+        icon: 'stats-chart-outline',
+        accentClassName: 'bg-[#E7DEF5]',
+        iconColor: '#5A3D8A',
+      };
     case 'PAYMENT_APPROVED':
     case 'PAYMENT_REJECTED':
     case 'PAYMENT_REVIEW':

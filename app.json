@@ -12,12 +12,12 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#4A148C",
         "foregroundImage": "./assets/icon.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.mario85mx.buenentornoapp"
+      "package": "com.buenentorno.appmx"
     },
     "web": {
       "bundler": "metro",

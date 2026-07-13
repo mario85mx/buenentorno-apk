@@ -129,7 +129,7 @@ export default function Sidebar({
 
   return (
     <Animated.View
-      className="h-full w-full border-r border-[#2E2145] bg-primary px-4 pb-6 pt-8"
+      className="h-full w-full border-r border-[#2E2145] bg-primary px-4 pb-10 pt-8"
       style={{
         opacity: containerOpacity,
         transform: [{ translateX: containerTranslateX }],
