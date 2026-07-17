@@ -1,3 +1,4 @@
+import { useAppThemeColors } from '../theme/tokens';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -160,6 +161,7 @@ export default function UploadReceipt({
   onBack,
   onSubmitSuccess,
 }: UploadReceiptProps) {
+  const themeColors = useAppThemeColors();
   const queryClient = useQueryClient();
   const condominiumQuery = useQuery({
     queryKey: queryKeys.condominiumDetail,
@@ -430,15 +432,15 @@ export default function UploadReceipt({
           className="flex-row items-center self-start rounded-full px-1 py-1"
           onPress={onBack}
         >
-          <Ionicons color="#18052E" name="chevron-back" size={20} />
-          <Text className="font-heading text-sm text-primary">Volver</Text>
+          <Ionicons color={themeColors.text} name="chevron-back" size={20} />
+          <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">Volver</Text>
         </Pressable>
 
         <View className="gap-2">
-          <Text className="font-heading text-2xl text-primary">
+          <Text className="font-heading text-2xl text-primary dark:text-[#F7F2FB]">
             Subir comprobante
           </Text>
-          <Text className="font-body text-base text-med-gray">
+          <Text className="font-body text-base text-med-gray dark:text-[#B9B2C2]">
             Envía tu comprobante a revisión y aplica los cargos que cubre el pago.
           </Text>
         </View>
@@ -446,7 +448,7 @@ export default function UploadReceipt({
         <Card width="full">
           <View className="gap-4">
             {condominiumQuery.isLoading ? (
-              <Text className="font-body text-sm text-med-gray">
+              <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                 Cargando cargos del residente...
               </Text>
             ) : condominiumQuery.error ? (
@@ -546,11 +548,11 @@ export default function UploadReceipt({
                     )}
                     onPress={() => setIsChargesOpen(true)}
                   >
-                    <Text className="flex-1 font-body text-base text-primary">
+                    <Text className="flex-1 font-body text-base text-primary dark:text-[#F7F2FB]">
                       {selectedChargesLabel}
                     </Text>
                     <Ionicons
-                      color="#6B7280"
+                      color={themeColors.textMuted}
                       name={isChargesOpen ? 'chevron-up' : 'chevron-down'}
                       size={20}
                     />
@@ -558,16 +560,16 @@ export default function UploadReceipt({
                 </FieldShell>
 
                 {selectedCharges.length ? (
-                  <View className="gap-2 rounded-xl border border-light-gray bg-[#F8F7FA] p-3">
+                  <View className="gap-2 rounded-xl border border-light-gray dark:border-[#3B3345] bg-[#F8F7FA] dark:bg-[#18131F] p-3">
                     {selectedCharges.map((selectedCharge) => (
                       <View
                         key={selectedCharge.id}
                         className="flex-row items-center justify-between gap-3"
                       >
-                        <Text className="flex-1 font-body text-sm text-primary">
+                        <Text className="flex-1 font-body text-sm text-primary dark:text-[#F7F2FB]">
                           {selectedCharge.charge}
                         </Text>
-                        <Text className="font-body-semibold text-sm text-primary">
+                        <Text className="font-body-semibold text-sm text-primary dark:text-[#F7F2FB]">
                           {formatCurrency(selectedCharge.amount)}
                         </Text>
                       </View>
@@ -576,7 +578,7 @@ export default function UploadReceipt({
                 ) : null}
 
                 {selectedUnit && selectedUnit.balance.credit > 0 ? (
-                  <View className="gap-2 rounded-xl border border-[#B7E4C7] bg-[#F0FDF4] p-4">
+                  <View className="gap-2 rounded-xl border border-[#B7E4C7] bg-[#F0FDF4] dark:bg-[#1C3325] p-4">
                     <Pressable
                       accessibilityRole="checkbox"
                       accessibilityState={{
@@ -592,17 +594,17 @@ export default function UploadReceipt({
                       onPress={() => setUseCreditBalance((current) => !current)}
                     >
                       <Ionicons
-                        color={useCreditBalance ? '#18052E' : '#6B7280'}
+                        color={useCreditBalance ? themeColors.text : themeColors.textMuted}
                         name={useCreditBalance ? 'checkbox-outline' : 'square-outline'}
                         size={22}
                       />
                       <View className="flex-1 gap-1">
-                        <Text className="font-body-semibold text-sm text-primary">
+                        <Text className="font-body-semibold text-sm text-primary dark:text-[#F7F2FB]">
                           Pagar con saldo a favor disponible{' '}
                           {formatCurrency(selectedUnit.balance.credit)}
                         </Text>
                         {useCreditBalance && selectedCharges.length > 0 ? (
-                          <Text className="font-body text-xs text-[#166534]">
+                          <Text className="font-body text-xs text-[#166534] dark:text-[#8ED6A8]">
                             Se descontarán {formatCurrency(creditAppliedAmount)} del
                             saldo a favor y el comprobante cubrirá{' '}
                             {formatCurrency(remainingReceiptAmount)}.
@@ -633,19 +635,19 @@ export default function UploadReceipt({
                         >
                           <View className="flex-1 flex-row items-center gap-3">
                             <Ionicons
-                              color="#18052E"
+                              color={themeColors.text}
                               name="attach-outline"
                               size={20}
                             />
                             <View className="flex-1">
                               <Text
-                                className="font-body text-base text-primary"
+                                className="font-body text-base text-primary dark:text-[#F7F2FB]"
                                 numberOfLines={1}
                               >
                                 {selectedFile?.name ?? 'Ningún archivo seleccionado'}
                               </Text>
                               {selectedFile ? (
-                                <Text className="font-body text-sm text-med-gray">
+                                <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                                   {receiptMimeTypeLabel(selectedFile.mimeType)}
                                   {selectedFile.size
                                     ? ` · ${formatFileSize(selectedFile.size)}`
@@ -655,7 +657,7 @@ export default function UploadReceipt({
                             </View>
                           </View>
                           <Ionicons
-                            color="#6B7280"
+                            color={themeColors.textMuted}
                             name={
                               selectedFile
                                 ? 'checkmark-circle-outline'
@@ -695,10 +697,10 @@ export default function UploadReceipt({
                     {selectedFile ? (
                       <Pressable
                         accessibilityRole="button"
-                        className="self-start rounded-full border border-light-gray px-3 py-2"
+                        className="self-start rounded-full border border-light-gray dark:border-[#3B3345] px-3 py-2"
                         onPress={() => setSelectedFile(null)}
                       >
-                        <Text className="font-body-semibold text-sm text-primary">
+                        <Text className="font-body-semibold text-sm text-primary dark:text-[#F7F2FB]">
                           Quitar archivo
                         </Text>
                       </Pressable>
@@ -712,8 +714,8 @@ export default function UploadReceipt({
                     />
                   </>
                 ) : selectedCharges.length > 0 && creditAppliedAmount > 0 ? (
-                  <View className="rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3">
-                    <Text className="font-body text-sm text-[#1D4ED8]">
+                  <View className="rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] dark:bg-[#202D43] px-4 py-3">
+                    <Text className="font-body text-sm text-[#1D4ED8] dark:text-[#91B4FF]">
                       El saldo a favor cubre todo el total seleccionado. Esta
                       pantalla solo envía comprobantes, así que no hay nada por
                       subir con esta selección.
@@ -726,10 +728,10 @@ export default function UploadReceipt({
                     <TextInput
                       multiline
                       numberOfLines={2}
-                      className="font-body text-base text-primary"
+                      className="font-body text-base text-primary dark:text-[#F7F2FB]"
                       placeholder="Observaciones adicionales"
-                      placeholderTextColor="#6B7280"
-                      selectionColor="#18052E"
+                      placeholderTextColor={themeColors.textMuted}
+                      selectionColor={themeColors.text}
                       style={{ textAlignVertical: 'top' }}
                       value={observations}
                       onChangeText={setObservations}
@@ -817,7 +819,7 @@ export default function UploadReceipt({
                     'flex-row items-center justify-between gap-3 rounded-lg border px-4 py-3',
                     isSelected
                       ? 'border-primary bg-primary'
-                      : 'border-light-gray bg-[#F8F7FA]',
+                      : 'border-light-gray dark:border-[#3B3345] bg-[#F8F7FA] dark:bg-[#18131F]',
                   )}
                   onPress={() => toggleCharge(chargeOption.id)}
                 >
@@ -825,7 +827,7 @@ export default function UploadReceipt({
                     <Text
                       className={cn(
                         'font-body-semibold text-base',
-                        isSelected ? 'text-white' : 'text-primary',
+                        isSelected ? 'text-white' : 'text-primary dark:text-[#F7F2FB]',
                       )}
                     >
                       {chargeOption.charge}
@@ -833,14 +835,14 @@ export default function UploadReceipt({
                     <Text
                       className={cn(
                         'font-body text-sm',
-                        isSelected ? 'text-white/85' : 'text-med-gray',
+                        isSelected ? 'text-white/85' : 'text-med-gray dark:text-[#B9B2C2]',
                       )}
                     >
                       {formatCurrency(chargeOption.amount)}
                     </Text>
                   </View>
                   <Ionicons
-                    color={isSelected ? '#FFFFFF' : '#6B7280'}
+                    color={isSelected ? '#FFFFFF' : themeColors.textMuted}
                     name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
                     size={22}
                   />
@@ -848,7 +850,7 @@ export default function UploadReceipt({
               );
             })
           ) : (
-            <Text className="font-body text-sm text-med-gray">
+            <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
               {selectedUnitBlockedMessage ||
                 'No hay adeudos pendientes disponibles para esta unidad.'}
             </Text>

@@ -1,3 +1,5 @@
+import { useColorScheme } from 'react-native';
+
 export const colorTokens = {
   primary: '#18052E',
   secondary: '#2D1B45',
@@ -11,6 +13,30 @@ export const colorTokens = {
   warning: '#C59D2D',
   white: '#FFFFFF',
 } as const;
+
+export const lightThemeColors = {
+  background: '#F6F3FA',
+  surface: '#FFFFFF',
+  surfaceMuted: '#F8F7FA',
+  text: '#18052E',
+  textMuted: '#6B7280',
+  textSubtle: '#9CA3AF',
+  border: '#E5E7EB',
+} as const;
+
+export const darkThemeColors = {
+  background: '#120E17',
+  surface: '#211A29',
+  surfaceMuted: '#18131F',
+  text: '#F7F2FB',
+  textMuted: '#D1CAD9',
+  textSubtle: '#B9B2C2',
+  border: '#3B3345',
+} as const;
+
+export function useAppThemeColors() {
+  return useColorScheme() === 'dark' ? darkThemeColors : lightThemeColors;
+}
 
 export const fontFamilyTokens = {
   montserrat: 'Montserrat_400Regular',

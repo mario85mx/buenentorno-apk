@@ -1,3 +1,4 @@
+import { useAppThemeColors } from '../theme/tokens';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Pressable, Text, View } from 'react-native';
@@ -34,6 +35,7 @@ export default function EncuestaDetail({
   surveyId,
   onBack,
 }: EncuestaDetailProps) {
+  const themeColors = useAppThemeColors();
   const queryClient = useQueryClient();
   const surveyQuery = useQuery({
     queryKey: queryKeys.surveyDetail(surveyId),
@@ -74,13 +76,13 @@ export default function EncuestaDetail({
         className="flex-row items-center self-start rounded-full px-1 py-1"
         onPress={onBack}
       >
-        <Ionicons color="#18052E" name="chevron-back" size={20} />
-        <Text className="font-heading text-sm text-primary">Volver</Text>
+        <Ionicons color={themeColors.text} name="chevron-back" size={20} />
+        <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">Volver</Text>
       </Pressable>
 
       {surveyQuery.isLoading ? (
         <Card width="full">
-          <Text className="font-body text-sm text-med-gray">
+          <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
             Cargando encuesta...
           </Text>
         </Card>
@@ -95,7 +97,7 @@ export default function EncuestaDetail({
         </Card>
       ) : !survey ? (
         <Card width="full">
-          <Text className="font-body text-base text-med-gray">
+          <Text className="font-body text-base text-med-gray dark:text-[#B9B2C2]">
             No se encontró la encuesta solicitada.
           </Text>
         </Card>
@@ -113,23 +115,23 @@ export default function EncuestaDetail({
                 ) : null}
               </View>
 
-              <Text className="font-heading text-2xl leading-8 text-primary">
+              <Text className="font-heading text-2xl leading-8 text-primary dark:text-[#F7F2FB]">
                 {survey.title}
               </Text>
 
-              <Text className="font-body text-base text-med-gray">
+              <Text className="font-body text-base text-med-gray dark:text-[#B9B2C2]">
                 {survey.description?.trim() || 'Sin descripción adicional.'}
               </Text>
             </View>
 
-            <View className="gap-2 rounded-2xl bg-[#F8F7FA] p-4">
-              <Text className="font-body text-sm text-primary">
+            <View className="gap-2 rounded-2xl bg-[#F8F7FA] dark:bg-[#18131F] p-4">
+              <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                 Publicada: {formatDateTime(survey.publishedAt)}
               </Text>
-              <Text className="font-body text-sm text-primary">
+              <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                 Cierre: {formatDateTime(survey.closesAt)}
               </Text>
-              <Text className="font-body text-sm text-primary">
+              <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                 Total de votos: {survey.totalVotes}
               </Text>
             </View>
@@ -142,17 +144,17 @@ export default function EncuestaDetail({
                   <Card
                     key={option.id}
                     className={`rounded-2xl border px-4 py-4 ${
-                      isSelected ? 'border-secondary bg-[#F7EEF5]' : 'border-light-gray'
+                      isSelected ? 'border-secondary bg-[#F7EEF5] dark:bg-[#3A2938]' : 'border-light-gray dark:border-[#3B3345]'
                     }`}
                     width="full"
                   >
                     <View className="gap-3">
                       <View className="flex-row items-start justify-between gap-3">
                         <View className="flex-1 gap-1">
-                          <Text className="font-body-semibold text-base text-primary">
+                          <Text className="font-body-semibold text-base text-primary dark:text-[#F7F2FB]">
                             {option.text}
                           </Text>
-                          <Text className="font-body text-xs text-med-gray">
+                          <Text className="font-body text-xs text-med-gray dark:text-[#B9B2C2]">
                             {option.voteCount} voto{option.voteCount === 1 ? '' : 's'}
                           </Text>
                         </View>

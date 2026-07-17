@@ -42,8 +42,8 @@ export default function AuthShell({
                     style={{ width: 152, height: 42 }}
                   />
                   <View className="gap-2">
-                    <Text className="font-heading text-3xl text-primary">{title}</Text>
-                    <Text className="font-body text-base leading-6 text-med-gray">
+                    <Text className="font-heading text-3xl text-primary dark:text-[#F7F2FB]">{title}</Text>
+                    <Text className="font-body text-base leading-6 text-med-gray dark:text-[#B9B2C2]">
                       {subtitle}
                     </Text>
                   </View>

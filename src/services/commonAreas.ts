@@ -1,6 +1,7 @@
 import { api } from './api';
 import type {
   CommonAreaDto,
+  CommonAreaAvailabilityDto,
   CommonAreaListResponse,
   CommonAreaReservationDto,
   CommonAreaReservationListResponse,
@@ -19,6 +20,14 @@ export interface ListCommonAreaReservationsParams {
 export async function getCommonAreas() {
   const { data } = await api.get<CommonAreaListResponse>('/common-areas');
   return data.data;
+}
+
+export async function getCommonAreaAvailability(areaId: number, date: string) {
+  const { data } = await api.get<CommonAreaAvailabilityDto>(
+    `/common-areas/${areaId}/availability`,
+    { params: { date } },
+  );
+  return data;
 }
 
 export async function getCommonAreaReservations(

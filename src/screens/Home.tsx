@@ -1,3 +1,4 @@
+import { useAppThemeColors } from '../theme/tokens';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
@@ -90,6 +91,7 @@ export default function Home({
   onOpenPaymentReceiptDetail,
   onOpenUploadReceipt,
 }: HomeProps) {
+  const themeColors = useAppThemeColors();
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedMovementStatus, setSelectedMovementStatus] =
@@ -186,7 +188,7 @@ export default function Home({
       <View className="gap-5">
         <View className="gap-4">
           <View className="flex-row flex-wrap justify-between gap-y-4">
-            <Text className="font-heading text-sm text-primary">
+            <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">
               {overview.periodLabel}
             </Text>
             <Text className="font-heading text-sm text-success">
@@ -194,13 +196,13 @@ export default function Home({
             </Text>
           </View>
 
-          <Text className="font-body text-sm text-med-gray">
+          <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
             Casa asociada: {overview.houseLabel}
           </Text>
 
           <View className="flex-row flex-wrap justify-between gap-y-4">
             <Card width="half">
-              <Text className="font-body text-sm text-primary">
+              <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                 Saldo Pendiente
               </Text>
               <Text className="mt-2 font-heading text-2xl text-danger">
@@ -209,7 +211,7 @@ export default function Home({
             </Card>
 
             <Card width="half">
-              <Text className="font-body text-sm text-primary">
+              <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                 Mantenimiento
               </Text>
               <Text className="mt-2 font-heading text-2xl text-success">
@@ -218,14 +220,14 @@ export default function Home({
             </Card>
 
             <Card width="half">
-              <Text className="font-body text-sm text-primary">Agua</Text>
-              <Text className="mt-2 font-heading text-2xl text-primary">
+              <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">Agua</Text>
+              <Text className="mt-2 font-heading text-2xl text-primary dark:text-[#F7F2FB]">
                 {overview.waterBalance}
               </Text>
             </Card>
 
             <Card width="half">
-              <Text className="font-body text-sm text-primary">
+              <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                 Multas y Otros
               </Text>
               <Text className="mt-2 font-heading text-2xl text-gray-400">
@@ -260,14 +262,14 @@ export default function Home({
                       onPress={() => setIsFilterOpen(true)}
                     />
 
-                    <View className="flex-1 rounded-xl border border-light-gray bg-white px-3">
+                    <View className="flex-1 rounded-xl border border-light-gray dark:border-[#3B3345] bg-white dark:bg-[#211A29] px-3">
                       <View className="min-h-11 flex-row items-center gap-2">
-                        <Ionicons color="#6B7280" name="search-outline" size={18} />
+                        <Ionicons color={themeColors.textMuted} name="search-outline" size={18} />
                         <TextInput
-                          className="flex-1 font-body text-base text-primary"
+                          className="flex-1 font-body text-base text-primary dark:text-[#F7F2FB]"
                           placeholder="Buscar"
-                          placeholderTextColor="#6B7280"
-                          selectionColor="#18052E"
+                          placeholderTextColor={themeColors.textMuted}
+                          selectionColor={themeColors.text}
                           value={searchQuery}
                           onChangeText={setSearchQuery}
                         />
@@ -276,13 +278,13 @@ export default function Home({
                   </View>
 
                   {isLoading ? (
-                    <Card className="rounded-lg border border-light-gray px-4 py-4">
-                      <Text className="font-body text-sm text-med-gray">
+                    <Card className="rounded-lg border border-light-gray dark:border-[#3B3345] px-4 py-4">
+                      <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                         Cargando movimientos...
                       </Text>
                     </Card>
                   ) : errorMessage ? (
-                    <Card className="rounded-lg border border-light-gray px-4 py-4">
+                    <Card className="rounded-lg border border-light-gray dark:border-[#3B3345] px-4 py-4">
                       <Text className="font-body text-sm text-danger">
                         {errorMessage}
                       </Text>
@@ -299,18 +301,18 @@ export default function Home({
                           className="rounded-lg"
                           onPress={() => onOpenPaymentTransactionDetail?.(movement)}
                         >
-                          <Card className="rounded-lg border border-light-gray px-3 py-2">
+                          <Card className="rounded-lg border border-light-gray dark:border-[#3B3345] px-3 py-2">
                             <View className="flex-row items-start justify-between">
                               <View className="flex-1 gap-2 pr-3">
                                 <View className="gap-1">
-                                  <Text className="font-heading text-sm text-primary">
+                                  <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">
                                     Conceptos:
                                   </Text>
                                   <View className="gap-1">
                                     {concepts.slice(0, 2).map((concept) => (
                                       <Text
                                         key={`${movement.id}-${concept}`}
-                                        className="font-body-semibold text-sm text-primary"
+                                        className="font-body-semibold text-sm text-primary dark:text-[#F7F2FB]"
                                         numberOfLines={1}
                                       >
                                         {concept}
@@ -320,11 +322,11 @@ export default function Home({
                                 </View>
 
                                 <View className="flex-row items-center gap-1">
-                                  <Text className="font-heading text-sm text-primary">
+                                  <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">
                                     {movement.dateLabel}:
                                   </Text>
                                   <Text
-                                    className="font-body-semibold text-sm text-primary"
+                                    className="font-body-semibold text-sm text-primary dark:text-[#F7F2FB]"
                                     numberOfLines={1}
                                   >
                                     {movement.dueDate}
@@ -340,7 +342,7 @@ export default function Home({
                                     variant={movement.badgeVariant}
                                   />
                                   <Ionicons
-                                    color="#9CA3AF"
+                                    color={themeColors.textSubtle}
                                     name="chevron-forward"
                                     size={18}
                                   />
@@ -360,8 +362,8 @@ export default function Home({
                       );
                     })
                   ) : (
-                    <Card className="rounded-lg border border-light-gray px-4 py-4">
-                      <Text className="font-body text-sm text-med-gray">
+                    <Card className="rounded-lg border border-light-gray dark:border-[#3B3345] px-4 py-4">
+                      <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                         No hay movimientos que coincidan con tu búsqueda o filtro.
                       </Text>
                     </Card>
@@ -383,14 +385,14 @@ export default function Home({
                       onPress={() => setIsReceiptFilterOpen(true)}
                     />
 
-                    <View className="flex-1 rounded-xl border border-light-gray bg-white px-3">
+                    <View className="flex-1 rounded-xl border border-light-gray dark:border-[#3B3345] bg-white dark:bg-[#211A29] px-3">
                       <View className="min-h-11 flex-row items-center gap-2">
-                        <Ionicons color="#6B7280" name="search-outline" size={18} />
+                        <Ionicons color={themeColors.textMuted} name="search-outline" size={18} />
                         <TextInput
-                          className="flex-1 font-body text-base text-primary"
+                          className="flex-1 font-body text-base text-primary dark:text-[#F7F2FB]"
                           placeholder="Buscar"
-                          placeholderTextColor="#6B7280"
-                          selectionColor="#18052E"
+                          placeholderTextColor={themeColors.textMuted}
+                          selectionColor={themeColors.text}
                           value={receiptSearchQuery}
                           onChangeText={setReceiptSearchQuery}
                         />
@@ -399,13 +401,13 @@ export default function Home({
                   </View>
 
                   {isLoading ? (
-                    <Card className="rounded-lg border border-light-gray px-4 py-4">
-                      <Text className="font-body text-sm text-med-gray">
+                    <Card className="rounded-lg border border-light-gray dark:border-[#3B3345] px-4 py-4">
+                      <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                         Cargando comprobantes...
                       </Text>
                     </Card>
                   ) : errorMessage ? (
-                    <Card className="rounded-lg border border-light-gray px-4 py-4">
+                    <Card className="rounded-lg border border-light-gray dark:border-[#3B3345] px-4 py-4">
                       <Text className="font-body text-sm text-danger">
                         {errorMessage}
                       </Text>
@@ -422,18 +424,18 @@ export default function Home({
                           className="rounded-lg"
                           onPress={() => onOpenPaymentReceiptDetail?.(receipt)}
                         >
-                          <Card className="rounded-lg border border-light-gray px-3 py-2">
+                          <Card className="rounded-lg border border-light-gray dark:border-[#3B3345] px-3 py-2">
                             <View className="flex-row items-start justify-between">
                               <View className="flex-1 gap-2 pr-3">
                                 <View className="gap-1">
-                                  <Text className="font-heading text-sm text-primary">
+                                  <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">
                                     Conceptos:
                                   </Text>
                                   <View className="gap-1">
                                     {concepts.slice(0, 2).map((concept) => (
                                       <Text
                                         key={`${receipt.id}-${concept}`}
-                                        className="font-body-semibold text-sm text-primary"
+                                        className="font-body-semibold text-sm text-primary dark:text-[#F7F2FB]"
                                         numberOfLines={1}
                                       >
                                         {concept}
@@ -443,11 +445,11 @@ export default function Home({
                                 </View>
 
                                 <View className="flex-row items-center gap-1">
-                                  <Text className="font-heading text-sm text-primary">
+                                  <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">
                                     Fecha pago:
                                   </Text>
                                   <Text
-                                    className="font-body-semibold text-sm text-primary"
+                                    className="font-body-semibold text-sm text-primary dark:text-[#F7F2FB]"
                                     numberOfLines={1}
                                   >
                                     {receipt.paymentDate}
@@ -463,7 +465,7 @@ export default function Home({
                                     variant={receipt.badgeVariant}
                                   />
                                   <Ionicons
-                                    color="#9CA3AF"
+                                    color={themeColors.textSubtle}
                                     name="chevron-forward"
                                     size={18}
                                   />
@@ -479,8 +481,8 @@ export default function Home({
                       );
                     })
                   ) : (
-                    <Card className="rounded-lg border border-light-gray px-4 py-4">
-                      <Text className="font-body text-sm text-med-gray">
+                    <Card className="rounded-lg border border-light-gray dark:border-[#3B3345] px-4 py-4">
+                      <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                         Aún no hay comprobantes enviados o validados.
                       </Text>
                     </Card>
@@ -516,13 +518,13 @@ export default function Home({
                 className={`rounded-lg border px-4 py-3 ${
                   isSelected
                     ? 'border-primary bg-primary'
-                    : 'border-light-gray bg-[#F8F7FA]'
+                    : 'border-light-gray dark:border-[#3B3345] bg-[#F8F7FA] dark:bg-[#18131F]'
                 }`}
                 onPress={() => setSelectedMovementStatus(status)}
               >
                 <Text
                   className={`font-body-semibold text-base ${
-                    isSelected ? 'text-white' : 'text-primary'
+                    isSelected ? 'text-white' : 'text-primary dark:text-[#F7F2FB]'
                   }`}
                 >
                   {status}
@@ -557,13 +559,13 @@ export default function Home({
                 className={`rounded-lg border px-4 py-3 ${
                   isSelected
                     ? 'border-primary bg-primary'
-                    : 'border-light-gray bg-[#F8F7FA]'
+                    : 'border-light-gray dark:border-[#3B3345] bg-[#F8F7FA] dark:bg-[#18131F]'
                 }`}
                 onPress={() => setSelectedReceiptStatus(status)}
               >
                 <Text
                   className={`font-body-semibold text-base ${
-                    isSelected ? 'text-white' : 'text-primary'
+                    isSelected ? 'text-white' : 'text-primary dark:text-[#F7F2FB]'
                   }`}
                 >
                   {status}

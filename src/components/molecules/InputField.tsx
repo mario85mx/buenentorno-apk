@@ -4,10 +4,10 @@ import {
   FIELD_CONTROL_CLASS,
   FIELD_INPUT_CLASS,
   FIELD_PLACEHOLDER_CLASS,
-  FIELD_PLACEHOLDER_COLOR,
   FieldShell,
   cn,
 } from './fieldShared';
+import { useAppThemeColors } from '../../theme/tokens';
 
 export interface InputFieldProps extends TextInputProps {
   label: string;
@@ -35,6 +35,7 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
     ref,
   ) => {
     const [isFocused, setIsFocused] = useState(false);
+    const themeColors = useAppThemeColors();
 
     return (
       <FieldShell
@@ -62,8 +63,8 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
               setIsFocused(true);
               onFocus?.(event);
             }}
-            placeholderTextColor={FIELD_PLACEHOLDER_COLOR}
-            selectionColor="#18052E"
+            placeholderTextColor={themeColors.textMuted}
+            selectionColor={themeColors.text}
             textAlignVertical="center"
             value={value}
             {...props}

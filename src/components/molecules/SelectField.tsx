@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Button from '../atoms/Button';
+import { useAppThemeColors } from '../../theme/tokens';
 import {
   BottomSheet,
   FIELD_CONTROL_CLASS,
@@ -39,6 +40,7 @@ export function SelectField({
   onChange,
 }: SelectFieldProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const themeColors = useAppThemeColors();
   const selectedOption = useMemo(
     () => options.find((option) => option.value === value),
     [options, value],
@@ -66,13 +68,13 @@ export function SelectField({
           <Text
             className={cn(
               'flex-1 font-body text-base',
-              selectedOption ? 'text-primary' : FIELD_PLACEHOLDER_CLASS,
+              selectedOption ? 'text-primary dark:text-[#F7F2FB]' : FIELD_PLACEHOLDER_CLASS,
             )}
           >
             {selectedOption?.label ?? placeholder}
           </Text>
           <Ionicons
-            color="#6B7280"
+            color={themeColors.textMuted}
             name={isOpen ? 'chevron-up' : 'chevron-down'}
             size={20}
           />
@@ -103,7 +105,7 @@ export function SelectField({
                   'rounded-lg border px-4 py-2',
                   isSelected
                     ? 'border-primary bg-primary'
-                    : 'border-light-gray bg-[#F8F7FA]',
+                    : 'border-light-gray dark:border-[#3B3345] bg-[#F8F7FA] dark:bg-[#18131F]',
                 )}
                 onPress={() => {
                   onChange(option.value);
@@ -113,7 +115,7 @@ export function SelectField({
                 <Text
                   className={cn(
                     'font-body text-base',
-                    isSelected ? 'text-white' : 'text-primary',
+                    isSelected ? 'text-white' : 'text-primary dark:text-[#F7F2FB]',
                   )}
                 >
                   {option.label}

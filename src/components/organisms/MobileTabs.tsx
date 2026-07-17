@@ -61,7 +61,7 @@ export default function MobileTabs({
               <Text
                 className={cn(
                   'font-heading text-sm',
-                  isActive ? 'text-primary' : 'text-med-gray',
+                  isActive ? 'text-primary dark:text-[#F7F2FB]' : 'text-med-gray dark:text-[#B9B2C2]',
                 )}
               >
                 {item.label}

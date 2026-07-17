@@ -1,3 +1,4 @@
+import { useAppThemeColors } from '../theme/tokens';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
@@ -30,6 +31,7 @@ interface TicketDetailProps {
 }
 
 export default function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
+  const themeColors = useAppThemeColors();
   const [draftMessage, setDraftMessage] = useState('');
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [feedbackTone, setFeedbackTone] = useState<'success' | 'danger'>(
@@ -88,7 +90,7 @@ export default function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
   if (ticketQuery.isLoading) {
     return (
       <Card width="full">
-        <Text className="font-body text-base text-med-gray">
+        <Text className="font-body text-base text-med-gray dark:text-[#B9B2C2]">
           Cargando detalle del ticket...
         </Text>
       </Card>
@@ -103,8 +105,8 @@ export default function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
           className="flex-row items-center self-start rounded-full px-1 py-1"
           onPress={onBack}
         >
-          <Ionicons color="#18052E" name="chevron-back" size={20} />
-          <Text className="font-heading text-sm text-primary">Volver</Text>
+          <Ionicons color={themeColors.text} name="chevron-back" size={20} />
+          <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">Volver</Text>
         </Pressable>
 
         <Card width="full">
@@ -127,12 +129,12 @@ export default function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
           className="flex-row items-center self-start rounded-full px-1 py-1"
           onPress={onBack}
         >
-          <Ionicons color="#18052E" name="chevron-back" size={20} />
-          <Text className="font-heading text-sm text-primary">Volver</Text>
+          <Ionicons color={themeColors.text} name="chevron-back" size={20} />
+          <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">Volver</Text>
         </Pressable>
 
         <Card width="full">
-          <Text className="font-body text-base text-med-gray">
+          <Text className="font-body text-base text-med-gray dark:text-[#B9B2C2]">
             No se encontró el ticket solicitado.
           </Text>
         </Card>
@@ -147,15 +149,15 @@ export default function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
         className="flex-row items-center self-start rounded-full px-1 py-1"
         onPress={onBack}
       >
-        <Ionicons color="#18052E" name="chevron-back" size={20} />
-        <Text className="font-heading text-sm text-primary">Volver</Text>
+        <Ionicons color={themeColors.text} name="chevron-back" size={20} />
+        <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">Volver</Text>
       </Pressable>
 
       <View className="gap-2">
-        <Text className="font-heading text-2xl text-primary">
+        <Text className="font-heading text-2xl text-primary dark:text-[#F7F2FB]">
           Detalle del ticket
         </Text>
-        <Text className="font-body text-base text-med-gray">
+        <Text className="font-body text-base text-med-gray dark:text-[#B9B2C2]">
           Consulta el seguimiento, mensajes y acciones disponibles.
         </Text>
       </View>
@@ -178,12 +180,12 @@ export default function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
               {detailRows.map((row) => (
                 <View
                   key={row.label}
-                  className="flex-row items-start justify-between gap-4 border-b border-light-gray pb-3"
+                  className="flex-row items-start justify-between gap-4 border-b border-light-gray dark:border-[#3B3345] pb-3"
                 >
-                  <Text className="font-heading text-sm text-primary">
+                  <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">
                     {row.label}
                   </Text>
-                  <Text className="flex-1 text-right font-body-semibold text-sm text-primary">
+                  <Text className="flex-1 text-right font-body-semibold text-sm text-primary dark:text-[#F7F2FB]">
                     {row.value}
                   </Text>
                 </View>
@@ -192,7 +194,7 @@ export default function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
           </View>
 
           <View className="gap-3">
-            <Text className="font-heading text-lg text-primary">Mensajes</Text>
+            <Text className="font-heading text-lg text-primary dark:text-[#F7F2FB]">Mensajes</Text>
 
             <View className="gap-3">
               {ticket.messages.map((message) => (
@@ -202,13 +204,13 @@ export default function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
                     'max-w-[88%] rounded-2xl px-4 py-3',
                     message.isResident
                       ? 'self-end bg-primary'
-                      : 'self-start bg-[#F3EEF8]',
+                      : 'self-start bg-[#F3EEF8] dark:bg-[#382C45]',
                   )}
                 >
                   <Text
                     className={cn(
                       'font-body-semibold text-xs',
-                      message.isResident ? 'text-white/80' : 'text-primary',
+                      message.isResident ? 'text-white/80' : 'text-primary dark:text-[#F7F2FB]',
                     )}
                   >
                     {message.author}
@@ -216,7 +218,7 @@ export default function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
                   <Text
                     className={cn(
                       'mt-1 font-body text-sm leading-6',
-                      message.isResident ? 'text-white' : 'text-primary',
+                      message.isResident ? 'text-white' : 'text-primary dark:text-[#F7F2FB]',
                     )}
                   >
                     {message.body}
@@ -224,7 +226,7 @@ export default function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
                   <Text
                     className={cn(
                       'mt-2 font-body text-xs',
-                      message.isResident ? 'text-white/70' : 'text-med-gray',
+                      message.isResident ? 'text-white/70' : 'text-med-gray dark:text-[#B9B2C2]',
                     )}
                   >
                     {message.timestamp}
@@ -235,15 +237,15 @@ export default function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
           </View>
 
           <View className="gap-3">
-            <Text className="font-heading text-lg text-primary">Responder</Text>
+            <Text className="font-heading text-lg text-primary dark:text-[#F7F2FB]">Responder</Text>
 
             <FieldShell label="Nuevo mensaje">
               <TextInput
                 multiline
                 numberOfLines={3}
                 placeholder="Escribe un mensaje para dar seguimiento al ticket"
-                placeholderTextColor="#374151"
-                selectionColor="#18052E"
+                placeholderTextColor={themeColors.textMuted}
+                selectionColor={themeColors.text}
                 textAlignVertical="top"
                 value={draftMessage}
                 {...webTextareaRowsProps}

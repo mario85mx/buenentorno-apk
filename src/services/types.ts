@@ -29,9 +29,11 @@ export type NotificationType =
   | 'PAYMENT_APPROVED'
   | 'PAYMENT_REJECTED'
   | 'VISITOR_ACCESS_APPROVED'
+  | 'VISITOR_ACCESS_REJECTED'
   | 'VISITOR_ACCESS_ENTRY_REGISTERED'
   | 'COMMON_AREA_RESERVATION_CREATED'
   | 'COMMON_AREA_RESERVATION_APPROVED'
+  | 'COMMON_AREA_RESERVATION_REJECTED'
   | 'TICKET_CREATED'
   | 'TICKET_MESSAGE'
   | 'NOTICE'
@@ -80,11 +82,6 @@ export interface ForgotPasswordResponse {
 export interface UpdateMePayload {
   name?: string;
   email?: string;
-}
-
-export interface RegisterPushTokenPayload {
-  token: string;
-  platform: 'android' | 'ios';
 }
 
 export interface DebtBreakdown {
@@ -385,6 +382,11 @@ export interface CommonAreaDto {
   requiresApproval: boolean;
   openingTime: string;
   closingTime: string;
+  slotDurationMinutes: number;
+  reservationIntervalMinutes: number;
+  availableDays: number[];
+  maxReservationsPerDay: number | null;
+  maxReservationsPerUserPerDay: number | null;
   minAdvanceHours: number;
   maxDurationMinutes: number;
   createdBy?: CommonAreaAuthorDto | null;
@@ -395,6 +397,27 @@ export interface CommonAreaDto {
 
 export interface CommonAreaListResponse {
   data: CommonAreaDto[];
+}
+
+export type CommonAreaAvailabilityStatus =
+  | 'AVAILABLE'
+  | 'PENDING'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'OCCUPIED';
+
+export interface CommonAreaAvailabilitySlotDto {
+  startAt: string;
+  endAt: string;
+  status: CommonAreaAvailabilityStatus;
+  reservationId: number | null;
+  canReserve: boolean;
+}
+
+export interface CommonAreaAvailabilityDto {
+  area: CommonAreaDto;
+  date: string;
+  slots: CommonAreaAvailabilitySlotDto[];
 }
 
 export type CommonAreaReservationStatus =

@@ -1,3 +1,4 @@
+import { useAppThemeColors } from '../theme/tokens';
 import * as FileSystem from 'expo-file-system/legacy';
 import {
   copyAsync,
@@ -33,6 +34,7 @@ export default function PaymentReceiptDetail({
   onBack,
   receipt,
 }: PaymentReceiptDetailProps) {
+  const themeColors = useAppThemeColors();
   const [isOpeningReceipt, setIsOpeningReceipt] = useState(false);
   const [openReceiptError, setOpenReceiptError] = useState('');
   const currentReceipt: PaymentReceipt = receipt ?? {
@@ -210,15 +212,15 @@ export default function PaymentReceiptDetail({
         className="flex-row items-center self-start rounded-full px-1 py-1"
         onPress={onBack}
       >
-        <Ionicons color="#18052E" name="chevron-back" size={20} />
-        <Text className="font-heading text-sm text-primary">Volver</Text>
+        <Ionicons color={themeColors.text} name="chevron-back" size={20} />
+        <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">Volver</Text>
       </Pressable>
 
       <View className="gap-2">
-        <Text className="font-heading text-2xl text-primary">
+        <Text className="font-heading text-2xl text-primary dark:text-[#F7F2FB]">
           Detalle del comprobante
         </Text>
-        <Text className="font-body text-base text-med-gray">
+        <Text className="font-body text-base text-med-gray dark:text-[#B9B2C2]">
           Revisa la información del pago y el archivo enviado.
         </Text>
       </View>
@@ -227,10 +229,10 @@ export default function PaymentReceiptDetail({
         <View className="gap-5">
           <View className="flex-row items-start justify-between gap-4">
             <View className="flex-1 gap-2">
-              <Text className="font-heading text-lg text-primary">
+              <Text className="font-heading text-lg text-primary dark:text-[#F7F2FB]">
                 {currentReceipt.type}
               </Text>
-              <Text className="font-body text-sm text-med-gray">
+              <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                 Comprobante asociado al pago registrado en la cuenta.
               </Text>
             </View>
@@ -250,32 +252,32 @@ export default function PaymentReceiptDetail({
             {detailRows.map((row) => (
               <View
                 key={row.label}
-                className="flex-row items-start justify-between gap-4 border-b border-light-gray pb-3"
+                className="flex-row items-start justify-between gap-4 border-b border-light-gray dark:border-[#3B3345] pb-3"
               >
-                <Text className="font-heading text-sm text-primary">
+                <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">
                   {row.label}
                 </Text>
-                <Text className="flex-1 text-right font-body-semibold text-sm text-primary">
+                <Text className="flex-1 text-right font-body-semibold text-sm text-primary dark:text-[#F7F2FB]">
                   {row.value}
                 </Text>
               </View>
             ))}
           </View>
 
-          <View className="gap-3 border-t border-light-gray pt-4">
-            <Text className="font-heading text-lg text-primary">
+          <View className="gap-3 border-t border-light-gray dark:border-[#3B3345] pt-4">
+            <Text className="font-heading text-lg text-primary dark:text-[#F7F2FB]">
               Conceptos liquidados
             </Text>
             <View className="gap-2">
               {conceptDetails.map((detail, index) => (
                 <View
                   key={`${detail.label}-${index}`}
-                  className="flex-row items-start justify-between gap-4 border-b border-light-gray pb-3"
+                  className="flex-row items-start justify-between gap-4 border-b border-light-gray dark:border-[#3B3345] pb-3"
                 >
-                  <Text className="flex-1 font-body-semibold text-base text-primary">
+                  <Text className="flex-1 font-body-semibold text-base text-primary dark:text-[#F7F2FB]">
                     {index + 1}. {detail.label}
                   </Text>
-                  <Text className="font-heading text-base text-primary">
+                  <Text className="font-heading text-base text-primary dark:text-[#F7F2FB]">
                     {detail.amount}
                   </Text>
                 </View>
@@ -284,10 +286,10 @@ export default function PaymentReceiptDetail({
           </View>
 
           <View className="gap-2 pt-2">
-            <Text className="font-body text-xs text-med-gray">
+            <Text className="font-body text-xs text-med-gray dark:text-[#B9B2C2]">
               Documento generado desde el portal de condominio de Buen Entorno.
             </Text>
-            <Text className="font-body text-xs text-med-gray">
+            <Text className="font-body text-xs text-med-gray dark:text-[#B9B2C2]">
               Fecha de descarga: {downloadDate}
             </Text>
           </View>

@@ -1,3 +1,4 @@
+import { useAppThemeColors } from '../theme/tokens';
 import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -70,20 +71,21 @@ function formatVehicle(access: VisitorAccessCreatedDto) {
 
 function statusTone(status: VisitorAccessStatus) {
   if (status === 'ACTIVE') {
-    return 'bg-[#E8F7EE] text-success';
+    return 'bg-[#E8F7EE] dark:bg-[#20352A] text-success';
   }
 
   if (status === 'PENDING_APPROVAL') {
-    return 'bg-[#FFF7E6] text-warning';
+    return 'bg-[#FFF7E6] dark:bg-[#3A3020] text-warning';
   }
 
-  return 'bg-[#EEF0F3] text-med-gray';
+  return 'bg-[#EEF0F3] dark:bg-[#2A2730] text-med-gray dark:text-[#B9B2C2]';
 }
 
 export default function VisitorAccessPassDetail({
   access,
   onBack,
 }: VisitorAccessPassDetailProps) {
+  const themeColors = useAppThemeColors();
   const shotRef = useRef<ElementRef<typeof ViewShot> | null>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -187,15 +189,15 @@ export default function VisitorAccessPassDetail({
         className="flex-row items-center self-start rounded-full px-1 py-1"
         onPress={onBack}
       >
-        <Ionicons color="#18052E" name="chevron-back" size={20} />
-        <Text className="font-heading text-sm text-primary">Volver</Text>
+        <Ionicons color={themeColors.text} name="chevron-back" size={20} />
+        <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">Volver</Text>
       </Pressable>
 
       <View className="gap-2">
-        <Text className="font-heading text-2xl text-primary">
+        <Text className="font-heading text-2xl text-primary dark:text-[#F7F2FB]">
           Pase de acceso
         </Text>
-        <Text className="font-body text-base text-med-gray">
+        <Text className="font-body text-base text-med-gray dark:text-[#B9B2C2]">
           Comparte el QR o guarda la imagen para enviarla a tu visitante.
         </Text>
       </View>
@@ -205,10 +207,10 @@ export default function VisitorAccessPassDetail({
           <View className="gap-5">
             <View className="flex-row items-start justify-between gap-4">
               <View className="flex-1 gap-2">
-                <Text className="font-heading text-lg text-primary">
+                <Text className="font-heading text-lg text-primary dark:text-[#F7F2FB]">
                   {access.visitorName}
                 </Text>
-                <Text className="font-body text-sm text-med-gray">
+                <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                   Folio #{access.id} · {formatVisitType(access.visitType)}
                 </Text>
               </View>
@@ -220,13 +222,13 @@ export default function VisitorAccessPassDetail({
               </View>
             </View>
 
-            <View className="items-center rounded-3xl bg-[#F8F7FA] px-4 py-5">
+            <View className="items-center rounded-3xl bg-[#F8F7FA] dark:bg-[#18131F] px-4 py-5">
               <QRCode size={220} value={access.qrToken} />
             </View>
 
-            <View className="gap-3 rounded-3xl bg-[#F8F7FA] p-4">
-              <Text className="font-heading text-base text-primary">Token QR</Text>
-              <Text className="rounded-2xl bg-white px-3 py-3 font-body text-xs leading-5 text-primary">
+            <View className="gap-3 rounded-3xl bg-[#F8F7FA] dark:bg-[#18131F] p-4">
+              <Text className="font-heading text-base text-primary dark:text-[#F7F2FB]">Token QR</Text>
+              <Text className="rounded-2xl bg-white dark:bg-[#211A29] px-3 py-3 font-body text-xs leading-5 text-primary dark:text-[#F7F2FB]">
                 {access.qrToken}
               </Text>
             </View>
@@ -235,12 +237,12 @@ export default function VisitorAccessPassDetail({
               {detailRows.map((row) => (
                 <View
                   key={row.label}
-                  className="flex-row items-start justify-between gap-4 border-b border-light-gray pb-3"
+                  className="flex-row items-start justify-between gap-4 border-b border-light-gray dark:border-[#3B3345] pb-3"
                 >
-                  <Text className="font-heading text-sm text-primary">
+                  <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">
                     {row.label}
                   </Text>
-                  <Text className="flex-1 text-right font-body-semibold text-sm text-primary">
+                  <Text className="flex-1 text-right font-body-semibold text-sm text-primary dark:text-[#F7F2FB]">
                     {row.value}
                   </Text>
                 </View>
@@ -251,7 +253,7 @@ export default function VisitorAccessPassDetail({
       </ViewShot>
 
       {actionError ? (
-        <View className="rounded-2xl border border-[#F1A2A2] bg-[#FDECEC] px-4 py-3">
+        <View className="rounded-2xl border border-[#F1A2A2] bg-[#FDECEC] dark:bg-[#3B2026] px-4 py-3">
           <Text className="font-body text-sm text-danger">{actionError}</Text>
         </View>
       ) : null}

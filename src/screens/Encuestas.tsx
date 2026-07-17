@@ -1,3 +1,4 @@
+import { useAppThemeColors } from '../theme/tokens';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { Pressable, Text, View } from 'react-native';
@@ -17,6 +18,7 @@ function surveyStatusVariant(isOpen: boolean) {
 }
 
 export default function Encuestas({ onOpenSurveyDetail }: EncuestasProps) {
+  const themeColors = useAppThemeColors();
   const surveysQuery = useQuery({
     queryKey: queryKeys.surveys,
     queryFn: listSurveys,
@@ -25,8 +27,8 @@ export default function Encuestas({ onOpenSurveyDetail }: EncuestasProps) {
   return (
     <View className="gap-5">
       <View className="gap-2">
-        <Text className="font-heading text-2xl text-primary">Encuestas</Text>
-        <Text className="font-body text-base text-med-gray">
+        <Text className="font-heading text-2xl text-primary dark:text-[#F7F2FB]">Encuestas</Text>
+        <Text className="font-body text-base text-med-gray dark:text-[#B9B2C2]">
           Participa en decisiones y consultas activas del condominio.
         </Text>
       </View>
@@ -34,7 +36,7 @@ export default function Encuestas({ onOpenSurveyDetail }: EncuestasProps) {
       <View className="gap-3">
         {surveysQuery.isLoading ? (
           <Card width="full">
-            <Text className="font-body text-sm text-med-gray">
+            <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
               Cargando encuestas...
             </Text>
           </Card>
@@ -56,7 +58,7 @@ export default function Encuestas({ onOpenSurveyDetail }: EncuestasProps) {
               className="rounded-lg"
               onPress={() => onOpenSurveyDetail?.(survey.id)}
             >
-              <Card className="rounded-lg border border-light-gray px-4 py-4">
+              <Card className="rounded-lg border border-light-gray dark:border-[#3B3345] px-4 py-4">
                 <View className="gap-3">
                   <View className="flex-row items-start justify-between gap-3">
                     <View className="flex-1 gap-2">
@@ -65,24 +67,24 @@ export default function Encuestas({ onOpenSurveyDetail }: EncuestasProps) {
                         label={survey.isOpen ? 'Abierta' : 'Cerrada'}
                         variant={surveyStatusVariant(survey.isOpen)}
                       />
-                      <Text className="font-heading text-lg text-primary">
+                      <Text className="font-heading text-lg text-primary dark:text-[#F7F2FB]">
                         {survey.title}
                       </Text>
                     </View>
 
                     <Ionicons
-                      color="#9CA3AF"
+                      color={themeColors.textSubtle}
                       name="chevron-forward"
                       size={18}
                     />
                   </View>
 
-                  <Text className="font-body text-sm leading-6 text-primary">
+                  <Text className="font-body text-sm leading-6 text-primary dark:text-[#F7F2FB]">
                     {survey.description?.trim() || 'Sin descripción adicional.'}
                   </Text>
 
                   <View className="flex-row flex-wrap gap-2">
-                    <Text className="font-body text-xs text-med-gray">
+                    <Text className="font-body text-xs text-med-gray dark:text-[#B9B2C2]">
                       {survey.totalVotes} voto{survey.totalVotes === 1 ? '' : 's'}
                     </Text>
                     {survey.myOptionId ? (
@@ -90,7 +92,7 @@ export default function Encuestas({ onOpenSurveyDetail }: EncuestasProps) {
                     ) : null}
                   </View>
 
-                  <Text className="font-body text-xs text-med-gray">
+                  <Text className="font-body text-xs text-med-gray dark:text-[#B9B2C2]">
                     Publicada: {formatDateTime(survey.publishedAt)}
                   </Text>
                 </View>
@@ -99,7 +101,7 @@ export default function Encuestas({ onOpenSurveyDetail }: EncuestasProps) {
           ))
         ) : (
           <Card width="full">
-            <Text className="font-body text-sm text-med-gray">
+            <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
               No hay encuestas publicadas todavía.
             </Text>
           </Card>

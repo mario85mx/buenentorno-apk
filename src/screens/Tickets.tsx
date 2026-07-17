@@ -1,3 +1,4 @@
+import { useAppThemeColors } from '../theme/tokens';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
@@ -37,6 +38,7 @@ export default function Tickets({
   onOpenTicketDetail,
   onOpenNewTicket,
 }: TicketsProps) {
+  const themeColors = useAppThemeColors();
   const [selectedStatus, setSelectedStatus] = useState('Todos');
   const [selectedPriority, setSelectedPriority] = useState('Todas');
 
@@ -70,7 +72,7 @@ export default function Tickets({
       {
         label: 'En Proceso',
         value: tickets.filter((ticket) => ticket.status === 'En proceso').length,
-        valueClassName: 'text-primary',
+        valueClassName: 'text-primary dark:text-[#F7F2FB]',
       },
       {
         label: 'En Espera',
@@ -94,8 +96,8 @@ export default function Tickets({
     <View className="gap-5">
       <View className="gap-4">
         <View className="gap-2">
-          <Text className="font-heading text-2xl text-primary">Tickets</Text>
-          <Text className="font-body text-base text-med-gray">
+          <Text className="font-heading text-2xl text-primary dark:text-[#F7F2FB]">Tickets</Text>
+          <Text className="font-body text-base text-med-gray dark:text-[#B9B2C2]">
             Abre solicitudes a administración y da seguimiento a cada respuesta.
           </Text>
         </View>
@@ -110,7 +112,7 @@ export default function Tickets({
       <View className="flex-row flex-wrap justify-between gap-y-4">
         {summaryCards.map((card) => (
           <Card key={card.label} width="half">
-            <Text className="font-body text-sm text-primary">{card.label}</Text>
+            <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">{card.label}</Text>
             <Text className={`mt-2 font-heading text-2xl ${card.valueClassName}`}>
               {card.value}
             </Text>
@@ -120,7 +122,7 @@ export default function Tickets({
 
       <Card width="full">
         <View className="gap-4">
-          <Text className="font-heading text-lg text-primary">Filtros</Text>
+          <Text className="font-heading text-lg text-primary dark:text-[#F7F2FB]">Filtros</Text>
           <SelectField
             label="Estatus"
             options={statusFilterOptions}
@@ -138,13 +140,13 @@ export default function Tickets({
 
       <View className="gap-3">
         {ticketsQuery.isLoading ? (
-          <Card className="rounded-lg border border-light-gray px-4 py-4">
-            <Text className="font-body text-sm text-med-gray">
+          <Card className="rounded-lg border border-light-gray dark:border-[#3B3345] px-4 py-4">
+            <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
               Cargando tickets...
             </Text>
           </Card>
         ) : ticketsQuery.error ? (
-          <Card className="rounded-lg border border-light-gray px-4 py-4">
+          <Card className="rounded-lg border border-light-gray dark:border-[#3B3345] px-4 py-4">
             <Text className="font-body text-sm text-danger">
               {getErrorMessage(
                 ticketsQuery.error,
@@ -161,20 +163,20 @@ export default function Tickets({
               className="rounded-lg"
               onPress={() => onOpenTicketDetail?.(ticket)}
             >
-              <Card className="rounded-lg border border-light-gray px-4 py-4">
+              <Card className="rounded-lg border border-light-gray dark:border-[#3B3345] px-4 py-4">
                 <View className="gap-3">
                   <View className="flex-row items-start justify-between gap-3">
                     <View className="flex-1 gap-1">
-                      <Text className="font-heading text-lg text-primary">
+                      <Text className="font-heading text-lg text-primary dark:text-[#F7F2FB]">
                         {ticket.subject}
                       </Text>
-                      <Text className="font-body text-sm text-med-gray">
+                      <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                         {ticket.category}
                       </Text>
                     </View>
 
                     <Ionicons
-                      color="#9CA3AF"
+                      color={themeColors.textSubtle}
                       name="chevron-forward"
                       size={18}
                     />
@@ -192,13 +194,13 @@ export default function Tickets({
                   </View>
 
                   <View className="gap-1">
-                    <Text className="font-body text-sm text-primary">
+                    <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                       Casa: {ticket.house}
                     </Text>
-                    <Text className="font-body text-sm text-primary">
+                    <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                       Mensajes: {ticket.messagesCount}
                     </Text>
-                    <Text className="font-body text-sm text-med-gray">
+                    <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                       Última actividad: {ticket.lastActivity}
                     </Text>
                   </View>
@@ -207,8 +209,8 @@ export default function Tickets({
             </Pressable>
           ))
         ) : (
-          <Card className="rounded-lg border border-light-gray px-4 py-4">
-            <Text className="font-body text-sm text-med-gray">
+          <Card className="rounded-lg border border-light-gray dark:border-[#3B3345] px-4 py-4">
+            <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
               No hay tickets que coincidan con los filtros seleccionados.
             </Text>
           </Card>

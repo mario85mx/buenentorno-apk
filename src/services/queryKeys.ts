@@ -7,6 +7,8 @@ export const queryKeys = {
   surveyDetail: (surveyId: string | number) => ['surveys', surveyId] as const,
   notifications: ['notifications'] as const,
   commonAreas: ['common-areas'] as const,
+  commonAreaAvailability: (commonAreaId: number | null, date: string) =>
+    ['common-area-availability', commonAreaId ?? 'none', date] as const,
   commonAreaReservations: (commonAreaId?: number | null) =>
     ['common-area-reservations', commonAreaId ?? 'all'] as const,
   tickets: ['tickets'] as const,

@@ -6,6 +6,7 @@ import {
   Image,
   Pressable,
   Text,
+  useColorScheme,
   View,
 } from 'react-native';
 
@@ -107,6 +108,7 @@ export default function Sidebar({
   onSelectItem,
   onLogout,
 }: SidebarProps) {
+  const isDarkMode = useColorScheme() === 'dark';
   const containerOpacity = useRef(new Animated.Value(0)).current;
   const containerTranslateX = useRef(new Animated.Value(-18)).current;
 
@@ -157,18 +159,18 @@ export default function Sidebar({
                   accessibilityRole="button"
                   className={cn(
                     'flex-row items-center gap-3 rounded-2xl px-4 py-3',
-                    isActive ? 'bg-white' : 'bg-transparent',
+                    isActive ? 'bg-white dark:bg-[#211A29]' : 'bg-transparent',
                   )}
                   onPress={() => onSelectItem?.(item.key)}
                 >
                   <SidebarIconView
-                    color={isActive ? '#18052E' : '#FFFFFF'}
+                    color={isActive && !isDarkMode ? '#18052E' : '#FFFFFF'}
                     icon={item.icon}
                   />
                   <Text
                     className={cn(
                       'font-body-semibold text-base',
-                      isActive ? 'text-primary' : 'text-white',
+                      isActive ? 'text-primary dark:text-[#F7F2FB]' : 'text-white',
                     )}
                   >
                     {item.label}

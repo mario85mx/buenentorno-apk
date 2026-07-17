@@ -1,3 +1,4 @@
+import { useAppThemeColors } from '../theme/tokens';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -12,6 +13,7 @@ export interface RecoveryProps {
 }
 
 export default function Recovery({ onBack, onSubmit }: RecoveryProps) {
+  const themeColors = useAppThemeColors();
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [debugResetUrl, setDebugResetUrl] = useState<string | null>(null);
@@ -50,8 +52,8 @@ export default function Recovery({ onBack, onSubmit }: RecoveryProps) {
             className="flex-row items-center gap-2 rounded-full px-2 py-1"
             onPress={onBack}
           >
-            <Ionicons color="#18052E" name="arrow-back" size={16} />
-            <Text className="font-body-semibold text-sm text-primary">
+            <Ionicons color={themeColors.text} name="arrow-back" size={16} />
+            <Text className="font-body-semibold text-sm text-primary dark:text-[#F7F2FB]">
               Volver a inicio de sesion
             </Text>
           </Pressable>
@@ -59,19 +61,19 @@ export default function Recovery({ onBack, onSubmit }: RecoveryProps) {
       }
     >
       {submitted ? (
-        <View className="gap-4 rounded-3xl border border-[#DDE8D5] bg-[#F4F8F1] px-5 py-5">
+        <View className="gap-4 rounded-3xl border border-[#DDE8D5] bg-[#F4F8F1] dark:bg-[#263322] px-5 py-5">
           <View className="h-12 w-12 items-center justify-center rounded-full bg-success">
             <Ionicons color="#FFFFFF" name="mail-outline" size={22} />
           </View>
           <View className="gap-2">
-            <Text className="font-heading text-xl text-primary">
+            <Text className="font-heading text-xl text-primary dark:text-[#F7F2FB]">
               Revisa tu correo
             </Text>
-            <Text className="font-body text-base leading-6 text-dark-gray">
+            <Text className="font-body text-base leading-6 text-dark-gray dark:text-[#D1CAD9]">
               Enviamos las instrucciones de recuperacion a {email}.
             </Text>
             {debugResetUrl ? (
-              <Text className="font-body text-sm leading-6 text-med-gray">
+              <Text className="font-body text-sm leading-6 text-med-gray dark:text-[#B9B2C2]">
                 URL de recuperación local: {debugResetUrl}
               </Text>
             ) : null}

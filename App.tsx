@@ -14,19 +14,18 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import {
+  DarkTheme,
+  DefaultTheme,
   NavigationContainer,
-  StackActions,
-  useNavigationContainerRef,
 } from '@react-navigation/native';
 import {
   createNativeStackNavigator,
   type NativeStackNavigationProp,
 } from '@react-navigation/native-stack';
 import { useFonts } from 'expo-font';
-import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Platform, useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Layout from './src/components/organisms/Layout';
 import Account from './src/screens/Account';
@@ -53,8 +52,6 @@ import {
   forgotPassword,
   getMe,
   login,
-  registerPushToken,
-  unregisterPushToken,
 } from './src/services/auth';
 import { getCommonAreas } from './src/services/commonAreas';
 import { isCondominiumModuleEnabled } from './src/services/condominiumModules';
@@ -62,11 +59,6 @@ import { getNotifications } from './src/services/condomino';
 import { isUnauthorizedError } from './src/services/error';
 import { mapNoticeDtoToViewModel } from './src/services/mappers';
 import { getNotice } from './src/services/notices';
-import {
-  getPushNotificationPayload,
-  registerForPushNotificationsAsync,
-  type PushNotificationPayload,
-} from './src/services/pushNotifications';
 import { queryKeys } from './src/services/queryKeys';
 import {
   clearStoredSession,
@@ -87,6 +79,10 @@ import type {
   PaymentReceipt,
   PaymentTransaction,
 } from './src/services/viewModels';
+import {
+  darkThemeColors,
+  lightThemeColors,
+} from './src/theme/tokens';
 
 type RootRouteName =
   | 'home'
@@ -121,8 +117,8 @@ type AppStackParamList = {
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
 type NotificationNavigationPayload = Pick<
-  PushNotificationPayload,
-  'notificationId' | 'type' | 'title' | 'message' | 'href' | 'createdAt'
+  NotificationViewModel,
+  'type' | 'href'
 >;
 
 interface NotificationNavigator {
@@ -130,9 +126,6 @@ interface NotificationNavigator {
   replaceRoot: (routeName: RootRouteName) => void;
   openNotice: (notice: Notice) => void;
 }
-
-const isPushEnabled =
-  process.env.EXPO_PUBLIC_ENABLE_PUSH?.trim().toLowerCase() === 'true';
 
 function getActiveMenuKey(routeName: RootRouteName) {
   if (routeName === 'visitor-access') {
@@ -173,6 +166,24 @@ function RedirectToRoute({
 }
 
 function AppShell() {
+  const colorScheme = useColorScheme();
+  const isDarkMode = colorScheme === 'dark';
+  const appThemeColors = isDarkMode ? darkThemeColors : lightThemeColors;
+  const navigationTheme = useMemo(
+    () => ({
+      ...(isDarkMode ? DarkTheme : DefaultTheme),
+      colors: {
+        ...(isDarkMode ? DarkTheme.colors : DefaultTheme.colors),
+        background: appThemeColors.background,
+        card: appThemeColors.surface,
+        text: appThemeColors.text,
+        border: appThemeColors.border,
+        notification: '#E2354D',
+        primary: '#E2354D',
+      },
+    }),
+    [appThemeColors, isDarkMode],
+  );
   const [session, setSession] = useState<AuthResponse | null>(null);
   const [authScreen, setAuthScreen] = useState<'login' | 'recovery'>('login');
   const [isSessionReady, setIsSessionReady] = useState(false);
@@ -180,35 +191,11 @@ function AppShell() {
     null,
   );
   const [isHomeRefreshing, setIsHomeRefreshing] = useState(false);
-  const [devicePushToken, setDevicePushToken] = useState<string | null>(null);
-  const [isNavigationReady, setIsNavigationReady] = useState(false);
   const isAuthenticated = !!session?.accessToken;
   const isAccessOperator = session?.user.role === 'ACCESS_OPERATOR';
   const queryClient = useQueryClient();
-  const navigationRef = useNavigationContainerRef<AppStackParamList>();
-  const lastHandledPushResponseIdRef = useRef<string | null>(null);
-  const pendingPushResponseRef =
-    useRef<Notifications.NotificationResponse | null>(null);
-  const devicePushTokenRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    devicePushTokenRef.current = devicePushToken;
-  }, [devicePushToken]);
-
   const handleLogout = useCallback(async () => {
-    const currentPushToken = devicePushTokenRef.current;
-
-    if (isPushEnabled && currentPushToken) {
-      try {
-        await unregisterPushToken(currentPushToken);
-      } catch {
-        // Ignore push token cleanup failures during logout.
-      }
-    }
-
     setApiAccessToken(null);
-    setDevicePushToken(null);
-    setIsNavigationReady(false);
     setSession(null);
     await clearStoredSession();
   }, []);
@@ -494,23 +481,6 @@ function AppShell() {
     [resolveAccessibleRoute],
   );
 
-  const pushNotificationNavigator = useMemo<NotificationNavigator>(
-    () => ({
-      openHomeTab: (tab) => {
-        navigationRef.dispatch(StackActions.replace('home', { tab }));
-      },
-      replaceRoot: (routeName) => {
-        navigationRef.dispatch(
-          StackActions.replace(resolveAccessibleRoute(routeName)),
-        );
-      },
-      openNotice: (notice) => {
-        navigationRef.navigate('aviso-detail', { notice });
-      },
-    }),
-    [navigationRef, resolveAccessibleRoute],
-  );
-
   const handleOpenNotification = useCallback(
     async (
       navigator: NotificationNavigator,
@@ -590,119 +560,6 @@ function AppShell() {
       noticesModuleEnabled,
     ],
   );
-
-  const handlePushNotificationResponse = useCallback(
-    async (response: Notifications.NotificationResponse | null) => {
-      if (!response) {
-        return;
-      }
-
-      const responseId = response.notification.request.identifier;
-
-      if (lastHandledPushResponseIdRef.current === responseId) {
-        return;
-      }
-
-      if (!navigationRef.isReady()) {
-        pendingPushResponseRef.current = response;
-        return;
-      }
-
-      lastHandledPushResponseIdRef.current = responseId;
-      pendingPushResponseRef.current = null;
-
-      const payload = getPushNotificationPayload(response);
-
-      if (!payload) {
-        await Notifications.clearLastNotificationResponseAsync();
-        return;
-      }
-
-      await handleOpenNotification(pushNotificationNavigator, payload);
-      await Notifications.clearLastNotificationResponseAsync();
-    },
-    [handleOpenNotification, navigationRef, pushNotificationNavigator],
-  );
-
-  useEffect(() => {
-    if (!isPushEnabled || !isAuthenticated) {
-      return;
-    }
-
-    let isMounted = true;
-
-    void registerForPushNotificationsAsync()
-      .then((token) => {
-        if (!isMounted || !token) {
-          return;
-        }
-
-        setDevicePushToken(token);
-
-        return registerPushToken({
-          token,
-          platform: Platform.OS === 'android' ? 'android' : 'ios',
-        });
-      })
-      .catch(() => {
-        // Ignore registration failures so login flow is not blocked.
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isAuthenticated, session?.user.currentCondominiumId, session?.user.id]);
-
-  useEffect(() => {
-    if (!isPushEnabled || !isAuthenticated) {
-      return;
-    }
-
-    const receivedSubscription =
-      Notifications.addNotificationReceivedListener(() => {
-        void queryClient.invalidateQueries({
-          queryKey: queryKeys.notifications,
-        });
-      });
-    const responseSubscription =
-      Notifications.addNotificationResponseReceivedListener((response) => {
-        void queryClient.invalidateQueries({
-          queryKey: queryKeys.notifications,
-        });
-        void handlePushNotificationResponse(response);
-      });
-
-    void Notifications.getLastNotificationResponseAsync().then((response) => {
-      void handlePushNotificationResponse(response);
-    });
-
-    return () => {
-      receivedSubscription.remove();
-      responseSubscription.remove();
-    };
-  }, [handlePushNotificationResponse, isAuthenticated, queryClient]);
-
-  useEffect(() => {
-    if (
-      !isPushEnabled ||
-      !isAuthenticated ||
-      !isNavigationReady ||
-      !navigationRef.isReady()
-    ) {
-      return;
-    }
-
-    if (!pendingPushResponseRef.current) {
-      return;
-    }
-
-    void handlePushNotificationResponse(pendingPushResponseRef.current);
-  }, [
-    handlePushNotificationResponse,
-    isAuthenticated,
-    isNavigationReady,
-    navigationRef,
-  ]);
 
   const handleLogin = useCallback(async (credentials: LoginPayload) => {
     const nextSession = await login(credentials);
@@ -841,15 +698,12 @@ function AppShell() {
   return (
     <>
       {isAuthenticated ? (
-        <NavigationContainer
-          ref={navigationRef}
-          onReady={() => setIsNavigationReady(true)}
-        >
+        <NavigationContainer theme={navigationTheme}>
           <Stack.Navigator
             initialRouteName={defaultRootRoute}
             screenOptions={{
               headerShown: false,
-              contentStyle: { backgroundColor: '#F6F3FA' },
+              contentStyle: { backgroundColor: appThemeColors.background },
               freezeOnBlur: false,
               animation: 'fade',
             }}
@@ -1258,7 +1112,9 @@ function AppShell() {
       ) : (
         authContent
       )}
-      <StatusBar style={isAuthenticated ? 'dark' : 'light'} />
+      <StatusBar
+        style={isAuthenticated ? (isDarkMode ? 'light' : 'dark') : 'light'}
+      />
     </>
   );
 }

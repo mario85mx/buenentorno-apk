@@ -12,6 +12,7 @@ import PrivacyNoticeLink from '../atoms/PrivacyNoticeLink';
 import Header from './Header';
 import Navbar, { NavbarItem } from './Navbar';
 import Sidebar, { SidebarItem } from './Sidebar';
+import { useAppThemeColors } from '../../theme/tokens';
 
 export interface LayoutProps {
   children: ReactNode;
@@ -112,6 +113,7 @@ export default function Layout({
   showCommonAreasMenu = true,
   visibleMenuKeys,
 }: LayoutProps) {
+  const themeColors = useAppThemeColors();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isDesktop = width >= 960;
@@ -217,7 +219,7 @@ export default function Layout({
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-primary">
-      <View className="flex-1 bg-[#F6F3FA]">
+      <View className="flex-1 bg-[#F6F3FA] dark:bg-[#120E17]">
         {shouldShowSidebar ? (
           <>
             {!isDesktop ? (
@@ -273,9 +275,9 @@ export default function Layout({
               onRefresh ? (
                 <RefreshControl
                   colors={['#18052E']}
-                  progressBackgroundColor="#FFFFFF"
+                  progressBackgroundColor={themeColors.surface}
                   refreshing={refreshing}
-                  tintColor="#18052E"
+                  tintColor={themeColors.text}
                   onRefresh={onRefresh}
                 />
               ) : undefined
@@ -285,10 +287,10 @@ export default function Layout({
             {children}
 
             <View className="flex-row items-center justify-center gap-2 pb-4 pt-6">
-              <Text className="font-body text-sm text-med-gray">
+              <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                 (c) 2026 Buen Entorno
               </Text>
-              <Text className="font-body text-sm text-med-gray">•</Text>
+              <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">•</Text>
               <PrivacyNoticeLink />
             </View>
           </ScrollView>

@@ -20,10 +20,10 @@ export default function ReceiptSubmissionConfirmation({
         </View>
 
         <View className="items-center gap-2">
-          <Text className="font-heading text-2xl text-primary">
+          <Text className="font-heading text-2xl text-primary dark:text-[#F7F2FB]">
             Comprobante enviado
           </Text>
-          <Text className="px-4 text-center font-body text-base text-med-gray">
+          <Text className="px-4 text-center font-body text-base text-med-gray dark:text-[#B9B2C2]">
             Tu comprobante fue enviado correctamente a revisión. Te avisaremos
             cuando el pago haya sido validado.
           </Text>
@@ -32,10 +32,10 @@ export default function ReceiptSubmissionConfirmation({
 
       <Card width="full">
         <View className="gap-3">
-          <Text className="font-heading text-lg text-primary">
+          <Text className="font-heading text-lg text-primary dark:text-[#F7F2FB]">
             Siguiente paso
           </Text>
-          <Text className="font-body text-base text-med-gray">
+          <Text className="font-body text-base text-med-gray dark:text-[#B9B2C2]">
             El equipo administrativo revisará la referencia, la clave de rastreo
             y el archivo adjunto antes de aplicar el pago.
           </Text>

@@ -5,10 +5,10 @@ import {
   FIELD_CONTROL_CLASS,
   FIELD_INPUT_CLASS,
   FIELD_PLACEHOLDER_CLASS,
-  FIELD_PLACEHOLDER_COLOR,
   FieldShell,
   cn,
 } from './fieldShared';
+import { useAppThemeColors } from '../../theme/tokens';
 
 export interface PasswordInputFieldProps extends TextInputProps {
   label: string;
@@ -37,6 +37,7 @@ export const PasswordInputField = forwardRef<TextInput, PasswordInputFieldProps>
   ) => {
     const [isFocused, setIsFocused] = useState(false);
     const [isVisible, setIsVisible] = useState(false);
+    const themeColors = useAppThemeColors();
 
     return (
       <FieldShell
@@ -64,9 +65,9 @@ export const PasswordInputField = forwardRef<TextInput, PasswordInputFieldProps>
               setIsFocused(true);
               onFocus?.(event);
             }}
-            placeholderTextColor={FIELD_PLACEHOLDER_COLOR}
+            placeholderTextColor={themeColors.textMuted}
             secureTextEntry={!isVisible}
-            selectionColor="#18052E"
+            selectionColor={themeColors.text}
             textAlignVertical="center"
             value={value}
             {...props}
@@ -80,7 +81,7 @@ export const PasswordInputField = forwardRef<TextInput, PasswordInputFieldProps>
             onPress={() => setIsVisible((current) => !current)}
           >
             <FontAwesome
-              color={editable ? '#6B7280' : '#9CA3AF'}
+              color={editable ? themeColors.textMuted : themeColors.textSubtle}
               name={isVisible ? 'eye-slash' : 'eye'}
               size={18}
             />

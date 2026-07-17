@@ -1,3 +1,4 @@
+import { useAppThemeColors } from '../theme/tokens';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { Image, Pressable, Text, View } from 'react-native';
@@ -15,6 +16,7 @@ interface AvisosProps {
 }
 
 export default function Avisos({ onOpenNoticeDetail }: AvisosProps) {
+  const themeColors = useAppThemeColors();
   const noticesQuery = useQuery({
     queryKey: queryKeys.notices,
     queryFn: listNotices,
@@ -24,8 +26,8 @@ export default function Avisos({ onOpenNoticeDetail }: AvisosProps) {
   return (
     <View className="gap-5">
       <View className="gap-2">
-        <Text className="font-heading text-2xl text-primary">Avisos</Text>
-        <Text className="font-body text-base text-med-gray">
+        <Text className="font-heading text-2xl text-primary dark:text-[#F7F2FB]">Avisos</Text>
+        <Text className="font-body text-base text-med-gray dark:text-[#B9B2C2]">
           Consulta noticias y comunicados recientes de la administración.
         </Text>
       </View>
@@ -33,7 +35,7 @@ export default function Avisos({ onOpenNoticeDetail }: AvisosProps) {
       <View className="gap-3">
         {noticesQuery.isLoading ? (
           <Card width="full">
-            <Text className="font-body text-sm text-med-gray">
+            <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
               Cargando avisos...
             </Text>
           </Card>
@@ -55,7 +57,7 @@ export default function Avisos({ onOpenNoticeDetail }: AvisosProps) {
               className="rounded-lg"
               onPress={() => onOpenNoticeDetail?.(notice)}
             >
-              <Card className="rounded-lg border border-light-gray px-4 py-4">
+              <Card className="rounded-lg border border-light-gray dark:border-[#3B3345] px-4 py-4">
                 <View className="gap-3">
                   <Image
                     accessibilityLabel={notice.title}
@@ -65,21 +67,21 @@ export default function Avisos({ onOpenNoticeDetail }: AvisosProps) {
                   />
 
                   <View className="flex-row items-start justify-between gap-3">
-                    <Text className="flex-1 font-heading text-lg text-primary">
+                    <Text className="flex-1 font-heading text-lg text-primary dark:text-[#F7F2FB]">
                       {notice.title}
                     </Text>
                     <Ionicons
-                      color="#9CA3AF"
+                      color={themeColors.textSubtle}
                       name="chevron-forward"
                       size={18}
                     />
                   </View>
 
-                  <Text className="font-body text-sm leading-6 text-primary">
+                  <Text className="font-body text-sm leading-6 text-primary dark:text-[#F7F2FB]">
                     {notice.excerpt}
                   </Text>
 
-                  <Text className="font-body text-xs text-med-gray">
+                  <Text className="font-body text-xs text-med-gray dark:text-[#B9B2C2]">
                     {notice.date}
                   </Text>
                 </View>
@@ -88,7 +90,7 @@ export default function Avisos({ onOpenNoticeDetail }: AvisosProps) {
           ))
         ) : (
           <Card width="full">
-            <Text className="font-body text-sm text-med-gray">
+            <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
               No hay avisos publicados todavía.
             </Text>
           </Card>

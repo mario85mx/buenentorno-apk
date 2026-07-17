@@ -706,7 +706,7 @@ export function mapNotificationToViewModel(
       return {
         ...baseNotification,
         icon: 'stats-chart-outline',
-        accentClassName: 'bg-[#E7DEF5]',
+        accentClassName: 'bg-[#E7DEF5] dark:bg-[#382C45]',
         iconColor: '#5A3D8A',
       };
     case 'PAYMENT_APPROVED':
@@ -719,19 +719,21 @@ export function mapNotificationToViewModel(
         iconColor: '#83A96A',
       };
     case 'VISITOR_ACCESS_APPROVED':
+    case 'VISITOR_ACCESS_REJECTED':
     case 'VISITOR_ACCESS_ENTRY_REGISTERED':
       return {
         ...baseNotification,
         icon: 'shield-checkmark-outline',
-        accentClassName: 'bg-[#E8EEF9]',
+        accentClassName: 'bg-[#E8EEF9] dark:bg-[#243047]',
         iconColor: '#3E63B8',
       };
     case 'COMMON_AREA_RESERVATION_CREATED':
     case 'COMMON_AREA_RESERVATION_APPROVED':
+    case 'COMMON_AREA_RESERVATION_REJECTED':
       return {
         ...baseNotification,
         icon: 'calendar-outline',
-        accentClassName: 'bg-[#E8EEF9]',
+        accentClassName: 'bg-[#E8EEF9] dark:bg-[#243047]',
         iconColor: '#3E63B8',
       };
     case 'TICKET_CREATED':
@@ -739,14 +741,14 @@ export function mapNotificationToViewModel(
       return {
         ...baseNotification,
         icon: 'ticket-outline',
-        accentClassName: 'bg-[#E7DEF5]',
+        accentClassName: 'bg-[#E7DEF5] dark:bg-[#382C45]',
         iconColor: '#5A3D8A',
       };
     default:
       return {
         ...baseNotification,
         icon: 'ticket-outline',
-        accentClassName: 'bg-[#E7DEF5]',
+        accentClassName: 'bg-[#E7DEF5] dark:bg-[#382C45]',
         iconColor: '#5A3D8A',
       };
   }

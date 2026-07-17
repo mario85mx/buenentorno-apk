@@ -7,7 +7,6 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colorTokens } from '../../theme/tokens';
 
 export interface FieldShellProps {
   label: string;
@@ -34,8 +33,7 @@ export function cn(...parts: Array<string | false | null | undefined>) {
 export const FIELD_SHELL_CLASS = 'field-shell';
 export const FIELD_CONTROL_CLASS = 'field-control';
 export const FIELD_INPUT_CLASS = 'field-input';
-export const FIELD_PLACEHOLDER_CLASS = 'text-dark-gray';
-export const FIELD_PLACEHOLDER_COLOR = colorTokens.darkGray;
+export const FIELD_PLACEHOLDER_CLASS = 'text-dark-gray dark:text-[#D1CAD9]';
 
 export function FieldShell({
   label,
@@ -47,13 +45,13 @@ export function FieldShell({
   children,
 }: FieldShellProps) {
   const message = errorText ?? helperText;
-  const messageColor = errorText ? 'text-danger' : 'text-med-gray';
+  const messageColor = errorText ? 'text-danger' : 'text-med-gray dark:text-[#B9B2C2]';
 
   return (
     <View className={cn('gap-1.5', className)}>
       <Text
         className={cn(
-          'px-1 font-body text-sm text-primary',
+          'px-1 font-body text-sm text-primary dark:text-[#F7F2FB]',
           errorText && 'text-danger',
           disabled && 'opacity-60',
         )}
@@ -64,9 +62,9 @@ export function FieldShell({
       <View
         className={cn(
           FIELD_SHELL_CLASS,
-          active ? 'border-primary' : 'border-light-gray',
+          active ? 'border-primary' : 'border-light-gray dark:border-[#3B3345]',
           errorText && 'border-danger',
-          disabled && 'bg-[#F8F7FA] opacity-60',
+          disabled && 'bg-[#F8F7FA] dark:bg-[#18131F] opacity-60',
         )}
       >
         {children}
@@ -100,12 +98,12 @@ export function BottomSheet({
       <View className="flex-1 justify-end bg-black/35">
         <Pressable className="flex-1" onPress={onClose} />
         <View
-          className="max-h-[85%] rounded-t-[32px] bg-white px-5 pt-4"
+          className="max-h-[85%] rounded-t-[32px] bg-white dark:bg-[#211A29] px-5 pt-4"
           style={{ paddingBottom: 24 + insets.bottom }}
         >
           <View className="mb-4 items-center">
             <View className="h-1.5 w-14 rounded-lg bg-light-gray" />
-            <Text className="mt-4 font-heading text-xl text-primary">
+            <Text className="mt-4 font-heading text-xl text-primary dark:text-[#F7F2FB]">
               {title}
             </Text>
           </View>

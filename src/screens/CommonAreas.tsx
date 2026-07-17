@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import Button from '../components/atoms/Button';
 import Card from '../components/atoms/Card';
 import DatePickerField from '../components/molecules/DatePickerField';
@@ -8,10 +8,10 @@ import InputField from '../components/molecules/InputField';
 import SelectField from '../components/molecules/SelectField';
 import { BottomSheet } from '../components/molecules/fieldShared';
 import {
-  buildCommonAreaDateTimeIso,
+  buildCommonAreaDateParam,
   cancelCommonAreaReservation,
   createCommonAreaReservation,
-  createTimeOptions,
+  getCommonAreaAvailability,
   getCommonAreaReservations,
   getCommonAreas,
 } from '../services/commonAreas';
@@ -20,6 +20,8 @@ import { getErrorMessage, getHttpStatus } from '../services/error';
 import { queryKeys } from '../services/queryKeys';
 import type {
   CommonAreaDto,
+  CommonAreaAvailabilitySlotDto,
+  CommonAreaAvailabilityStatus,
   CommonAreaReservationDto,
   CommonAreaReservationStatus,
 } from '../services/types';
@@ -72,18 +74,34 @@ function formatStatus(status: CommonAreaReservationStatus) {
 
 function statusTone(status: CommonAreaReservationStatus) {
   if (status === 'APPROVED') {
-    return 'bg-[#E8F7EE] text-success';
+    return 'bg-[#E8F7EE] dark:bg-[#20352A] text-success';
   }
 
   if (status === 'REJECTED') {
-    return 'bg-[#FDECEC] text-danger';
+    return 'bg-[#FDECEC] dark:bg-[#3B2026] text-danger';
   }
 
   if (status === 'CANCELLED') {
-    return 'bg-[#EEF0F3] text-med-gray';
+    return 'bg-[#EEF0F3] dark:bg-[#2A2730] text-med-gray dark:text-[#B9B2C2]';
   }
 
-  return 'bg-[#FFF7E6] text-warning';
+  return 'bg-[#FFF7E6] dark:bg-[#3A3020] text-warning';
+}
+
+function formatAvailabilityStatus(status: CommonAreaAvailabilityStatus) {
+  if (status === 'APPROVED') return 'Aprobado';
+  if (status === 'PENDING') return 'Pendiente';
+  if (status === 'REJECTED') return 'Rechazado';
+  if (status === 'OCCUPIED') return 'Ocupado';
+  return 'Disponible';
+}
+
+function availabilityTone(status: CommonAreaAvailabilityStatus) {
+  if (status === 'AVAILABLE') return 'bg-[#E8F7EE] dark:bg-[#20352A] text-success';
+  if (status === 'PENDING') return 'bg-[#FFF7E6] dark:bg-[#3A3020] text-warning';
+  if (status === 'REJECTED') return 'bg-[#FDECEC] dark:bg-[#3B2026] text-danger';
+  if (status === 'APPROVED') return 'bg-[#EAF2FF] dark:bg-[#243047] text-primary dark:text-[#F7F2FB]';
+  return 'bg-[#EEF0F3] dark:bg-[#2A2730] text-med-gray dark:text-[#B9B2C2]';
 }
 
 function isSameDay(dateString: string, selectedDate: Date) {
@@ -113,11 +131,11 @@ export default function CommonAreas() {
   const [selectedReservation, setSelectedReservation] =
     useState<CommonAreaReservationDto | null>(null);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
-  const [reservationDate, setReservationDate] = useState<Date>(new Date());
   const [reservationStartTime, setReservationStartTime] = useState<string | null>(null);
   const [reservationEndTime, setReservationEndTime] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [cancelReason, setCancelReason] = useState('');
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
 
   const commonAreasQuery = useQuery({
     queryKey: queryKeys.commonAreas,
@@ -137,15 +155,33 @@ export default function CommonAreas() {
       ),
     enabled: !!selectedAreaId,
   });
+  const selectedDateParam = buildCommonAreaDateParam(selectedDate);
+  const availabilityQuery = useQuery({
+    queryKey: queryKeys.commonAreaAvailability(
+      selectedAreaId ? Number(selectedAreaId) : null,
+      selectedDateParam,
+    ),
+    queryFn: () =>
+      getCommonAreaAvailability(Number(selectedAreaId), selectedDateParam),
+    enabled: !!selectedAreaId,
+  });
 
   const createReservationMutation = useMutation({
     mutationFn: createCommonAreaReservation,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.commonAreaReservations(
-          selectedAreaId ? Number(selectedAreaId) : null,
-        ),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.commonAreaReservations(
+            selectedAreaId ? Number(selectedAreaId) : null,
+          ),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.commonAreaAvailability(
+            selectedAreaId ? Number(selectedAreaId) : null,
+            selectedDateParam,
+          ),
+        }),
+      ]);
     },
   });
 
@@ -158,11 +194,19 @@ export default function CommonAreas() {
       reason?: string;
     }) => cancelCommonAreaReservation(reservationId, reason),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.commonAreaReservations(
-          selectedAreaId ? Number(selectedAreaId) : null,
-        ),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.commonAreaReservations(
+            selectedAreaId ? Number(selectedAreaId) : null,
+          ),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.commonAreaAvailability(
+            selectedAreaId ? Number(selectedAreaId) : null,
+            selectedDateParam,
+          ),
+        }),
+      ]);
     },
   });
 
@@ -206,17 +250,19 @@ export default function CommonAreas() {
 
   const reservations = reservationsQuery.data ?? [];
   const hasLinkedCondomino = getHttpStatus(condominiumQuery.error) !== 404;
-
-  const dailyReservations = useMemo(
+  const upcomingAvailabilitySlots = useMemo(
     () =>
-      reservations
-        .filter((reservation) => isSameDay(reservation.startAt, selectedDate))
-        .sort(
-          (left, right) =>
-            new Date(left.startAt).getTime() - new Date(right.startAt).getTime(),
-        ),
-    [reservations, selectedDate],
+      (availabilityQuery.data?.slots ?? []).filter((slot) => {
+        const startAt = new Date(slot.startAt).getTime();
+        return Number.isFinite(startAt) && startAt > currentTime;
+      }),
+    [availabilityQuery.data?.slots, currentTime],
   );
+
+  useEffect(() => {
+    const intervalId = setInterval(() => setCurrentTime(Date.now()), 60_000);
+    return () => clearInterval(intervalId);
+  }, []);
 
   const filteredReservations = useMemo(
     () =>
@@ -238,63 +284,16 @@ export default function CommonAreas() {
     [reservationDateFilter, reservationStatusFilter, reservations],
   );
 
-  const timeOptions = useMemo(
-    () => (selectedArea ? createTimeOptions() : []),
-    [selectedArea],
-  );
-
-  const startTimeOptions = useMemo(
-    () => timeOptions.slice(0, Math.max(0, timeOptions.length - 1)),
-    [timeOptions],
-  );
-
-  const endTimeOptions = useMemo(() => {
-    if (!reservationStartTime) {
-      return timeOptions.slice(1);
-    }
-
-    const startIndex = timeOptions.findIndex(
-      (option) => option.value === reservationStartTime,
-    );
-
-    if (startIndex < 0) {
-      return timeOptions.slice(1);
-    }
-
-    return timeOptions.slice(startIndex + 1);
-  }, [reservationStartTime, timeOptions]);
-
-  useEffect(() => {
-    if (!startTimeOptions.length) {
-      setReservationStartTime(null);
-      setReservationEndTime(null);
-      return;
-    }
-
-    setReservationStartTime((current) =>
-      current && startTimeOptions.some((option) => option.value === current)
-        ? current
-        : startTimeOptions[0]?.value ?? null,
-    );
-  }, [startTimeOptions]);
-
-  useEffect(() => {
-    if (!endTimeOptions.length) {
-      setReservationEndTime(null);
-      return;
-    }
-
-    setReservationEndTime((current) =>
-      current && endTimeOptions.some((option) => option.value === current)
-        ? current
-        : endTimeOptions[0]?.value ?? null,
-    );
-  }, [endTimeOptions]);
-
   const handleRefresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.commonAreas }),
       queryClient.invalidateQueries({ queryKey: queryKeys.condominiumDetail }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.commonAreaAvailability(
+          selectedAreaId ? Number(selectedAreaId) : null,
+          selectedDateParam,
+        ),
+      }),
       queryClient.invalidateQueries({
         queryKey: queryKeys.commonAreaReservations(
           selectedAreaId ? Number(selectedAreaId) : null,
@@ -303,8 +302,11 @@ export default function CommonAreas() {
     ]);
   };
 
-  const openReservationSheet = () => {
-    setReservationDate(selectedDate);
+  const openReservationSheet = (slot: CommonAreaAvailabilitySlotDto) => {
+    if (!slot.canReserve) return;
+
+    setReservationStartTime(slot.startAt);
+    setReservationEndTime(slot.endAt);
     setNotes('');
     setReservationError('');
     setIsReservationSheetOpen(true);
@@ -312,7 +314,7 @@ export default function CommonAreas() {
 
   const handleCreateReservation = () => {
     if (!selectedArea || !selectedUnitId || !reservationStartTime || !reservationEndTime) {
-      setReservationError('Completa área, unidad y horario.');
+      setReservationError('Selecciona una unidad para completar la reservación.');
       return;
     }
 
@@ -320,8 +322,8 @@ export default function CommonAreas() {
       {
         commonAreaId: selectedArea.id,
         unitId: Number(selectedUnitId),
-        startAt: buildCommonAreaDateTimeIso(reservationDate, reservationStartTime),
-        endAt: buildCommonAreaDateTimeIso(reservationDate, reservationEndTime),
+        startAt: reservationStartTime,
+        endAt: reservationEndTime,
         notes: notes.trim() || undefined,
       },
       {
@@ -369,37 +371,25 @@ export default function CommonAreas() {
       <View className="gap-5">
         <View className="gap-4">
           <View className="gap-2">
-            <Text className="font-heading text-2xl text-primary">
+            <Text className="font-heading text-2xl text-primary dark:text-[#F7F2FB]">
               Áreas comunes
             </Text>
-            <Text className="font-body text-base text-med-gray">
-              Consulta horarios reservados del día y administra tus reservaciones.
+            <Text className="font-body text-base text-med-gray dark:text-[#B9B2C2]">
+              Toca un horario disponible para iniciar una reservación.
             </Text>
           </View>
 
           {!hasLinkedCondomino ? (
-            <View className="rounded-2xl border border-[#F6C77A] bg-[#FFF7E6] px-4 py-4">
-              <Text className="font-body text-sm text-primary">
+            <View className="rounded-2xl border border-[#F6C77A] bg-[#FFF7E6] dark:bg-[#3A3020] px-4 py-4">
+              <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                 Tu cuenta no tiene un condomino vinculado. Puedes consultar disponibilidad,
                 pero no crear reservaciones hasta que se vincule tu perfil.
               </Text>
             </View>
           ) : null}
 
-          <View className="flex-row gap-3">
+          <View className="flex-row justify-end gap-3">
             <Button
-              className="flex-1"
-              icon="add-circle-outline"
-              title="Nueva reservación"
-              disabled={
-                !selectedArea ||
-                !condominiumQuery.data?.units.length ||
-                createReservationMutation.isPending
-              }
-              onPress={openReservationSheet}
-            />
-            <Button
-              className="flex-1"
               icon="refresh-outline"
               title="Actualizar"
               variant="secondary"
@@ -422,7 +412,7 @@ export default function CommonAreas() {
                 />
 
                 {commonAreasQuery.isLoading ? (
-                  <Text className="font-body text-sm text-med-gray">
+                  <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                     Cargando áreas comunes...
                   </Text>
                 ) : commonAreasQuery.error ? (
@@ -433,24 +423,24 @@ export default function CommonAreas() {
                     )}
                   </Text>
                 ) : selectedArea ? (
-                  <View className="gap-3 rounded-2xl border border-light-gray bg-[#F8F7FA] p-4">
-                    <Text className="font-heading text-xl text-primary">
+                  <View className="gap-3 rounded-2xl border border-light-gray dark:border-[#3B3345] bg-[#F8F7FA] dark:bg-[#18131F] p-4">
+                    <Text className="font-heading text-xl text-primary dark:text-[#F7F2FB]">
                       {selectedArea.name}
                     </Text>
-                    <Text className="font-body text-sm text-med-gray">
+                    <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                       {selectedArea.description?.trim() || 'Sin descripción registrada.'}
                     </Text>
-                    <Text className="font-body text-sm text-primary">
+                    <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                       Ubicación: {selectedArea.location?.trim() || 'Sin ubicación'}
                     </Text>
-                    <Text className="font-body text-sm text-med-gray">
+                    <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                       {selectedArea.requiresApproval
                         ? 'Requiere aprobación de administración.'
                         : 'Reserva directa.'}
                     </Text>
                   </View>
                 ) : (
-                  <Text className="font-body text-sm text-med-gray">
+                  <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                     Selecciona un área para ver su detalle.
                   </Text>
                 )}
@@ -461,10 +451,10 @@ export default function CommonAreas() {
           <View className="gap-5 lg:w-[58%]">
             <Card width="full">
               <View className="gap-4">
-                <Text className="font-heading text-lg text-primary">
+                <Text className="font-heading text-lg text-primary dark:text-[#F7F2FB]">
                   Disponibilidad diaria
                 </Text>
-                <Text className="font-body text-sm text-med-gray">
+                <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                   Se muestran los slots reservados del día para el área seleccionada.
                 </Text>
 
@@ -472,56 +462,72 @@ export default function CommonAreas() {
                   label="Fecha"
                   value={selectedDate}
                   onChange={setSelectedDate}
+                  minimumDate={new Date()}
                   minimumYear={2024}
                   maximumYear={2035}
                 />
 
-                {condominiumQuery.isLoading || reservationsQuery.isLoading ? (
-                  <Text className="font-body text-sm text-med-gray">
-                    Consultando reservaciones del día...
+                {availabilityQuery.isLoading ? (
+                  <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
+                    Consultando disponibilidad...
                   </Text>
-                ) : reservationsQuery.error ? (
+                ) : availabilityQuery.error ? (
                   <Text className="font-body text-sm text-danger">
                     {getErrorMessage(
-                      reservationsQuery.error,
-                      'No fue posible cargar las reservaciones.',
+                      availabilityQuery.error,
+                      'No fue posible cargar la disponibilidad.',
                     )}
                   </Text>
-                ) : dailyReservations.length ? (
+                ) : upcomingAvailabilitySlots.length ? (
                   <View className="gap-3">
-                    {dailyReservations.map((reservation) => (
-                      <View
-                        key={`daily-${reservation.id}`}
-                        className="gap-2 rounded-2xl border border-light-gray bg-white px-4 py-4"
+                    {upcomingAvailabilitySlots.map((slot) => (
+                      <Pressable
+                        key={`daily-${slot.startAt}`}
+                        disabled={
+                          !slot.canReserve ||
+                          !hasLinkedCondomino ||
+                          !condominiumQuery.data?.units.length
+                        }
+                        onPress={() => openReservationSheet(slot)}
+                        className={`gap-2 rounded-2xl border px-4 py-4 ${
+                          slot.canReserve
+                            ? 'border-[#A8DDBA] bg-[#F5FCF7] dark:bg-[#20352A] active:opacity-70'
+                            : 'border-light-gray dark:border-[#3B3345] bg-white dark:bg-[#211A29]'
+                        }`}
                       >
                         <View className="flex-row items-start justify-between gap-3">
                           <View className="flex-1 gap-1">
-                            <Text className="font-body-semibold text-base text-primary">
+                            <Text className="font-body-semibold text-base text-primary dark:text-[#F7F2FB]">
                               {formatTimeRange(
-                                reservation.startAt,
-                                reservation.endAt,
+                                slot.startAt,
+                                slot.endAt,
                               )}
                             </Text>
-                            <Text className="font-body text-sm text-med-gray">
-                              {formatDate(reservation.startAt)}
+                            <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
+                              {formatDate(slot.startAt)}
                             </Text>
                           </View>
                           <View
-                            className={`rounded-full px-3 py-1 ${statusTone(
-                              reservation.status,
+                            className={`rounded-full px-3 py-1 ${availabilityTone(
+                              slot.status,
                             )}`}
                           >
                             <Text className="font-body-semibold text-xs">
-                              {formatStatus(reservation.status)}
+                              {formatAvailabilityStatus(slot.status)}
                             </Text>
                           </View>
                         </View>
-                      </View>
+                        {slot.canReserve && hasLinkedCondomino ? (
+                          <Text className="font-body-semibold text-xs text-success">
+                            Toca para reservar
+                          </Text>
+                        ) : null}
+                      </Pressable>
                     ))}
                   </View>
                 ) : (
-                  <Text className="font-body text-sm text-med-gray">
-                    No hay horarios reservados para la fecha seleccionada.
+                  <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
+                    No hay horarios próximos para la fecha seleccionada.
                   </Text>
                 )}
               </View>
@@ -532,10 +538,10 @@ export default function CommonAreas() {
         <Card width="full">
           <View className="gap-4">
             <View className="gap-2">
-              <Text className="font-heading text-lg text-primary">
+              <Text className="font-heading text-lg text-primary dark:text-[#F7F2FB]">
                 Reservaciones
               </Text>
-              <Text className="font-body text-sm text-med-gray">
+              <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                 La lista inicia mostrando todas tus reservaciones del área y puedes filtrarlas por estatus o fecha.
               </Text>
             </View>
@@ -569,7 +575,7 @@ export default function CommonAreas() {
             />
 
             {reservationsQuery.isLoading ? (
-              <Text className="font-body text-sm text-med-gray">
+              <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                 Cargando reservaciones...
               </Text>
             ) : reservationsQuery.error ? (
@@ -584,14 +590,14 @@ export default function CommonAreas() {
                 {filteredReservations.map((reservation) => (
                   <View
                     key={reservation.id}
-                    className="gap-3 rounded-2xl border border-light-gray bg-white px-4 py-4"
+                    className="gap-3 rounded-2xl border border-light-gray dark:border-[#3B3345] bg-white dark:bg-[#211A29] px-4 py-4"
                   >
                     <View className="flex-row items-start justify-between gap-3">
                       <View className="flex-1 gap-1">
-                        <Text className="font-body-semibold text-base text-primary">
+                        <Text className="font-body-semibold text-base text-primary dark:text-[#F7F2FB]">
                           {reservation.area.name}
                         </Text>
-                        <Text className="font-body text-sm text-med-gray">
+                        <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                           {formatDate(reservation.startAt)} ·{' '}
                           {formatTimeRange(reservation.startAt, reservation.endAt)}
                         </Text>
@@ -608,13 +614,13 @@ export default function CommonAreas() {
                     </View>
 
                     {reservation.notes ? (
-                      <Text className="font-body text-sm text-primary">
+                      <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                         Nota: {reservation.notes}
                       </Text>
                     ) : null}
 
                     {reservation.cancelReason ? (
-                      <Text className="font-body text-sm text-med-gray">
+                      <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                         Motivo cancelación: {reservation.cancelReason}
                       </Text>
                     ) : null}
@@ -636,7 +642,7 @@ export default function CommonAreas() {
                 ))}
               </View>
             ) : (
-              <Text className="font-body text-sm text-med-gray">
+              <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                 No hay reservaciones que coincidan con los filtros seleccionados.
               </Text>
             )}
@@ -666,33 +672,28 @@ export default function CommonAreas() {
         }
       >
         <View className="gap-4">
-          <DatePickerField
-            label="Fecha"
-            value={reservationDate}
-            onChange={setReservationDate}
-            minimumYear={2024}
-            maximumYear={2035}
-          />
+          {selectedArea ? (
+            <View className="gap-1 rounded-2xl border border-light-gray dark:border-[#3B3345] bg-[#F8F7FA] dark:bg-[#18131F] px-4 py-4">
+              <Text className="font-body-semibold text-base text-primary dark:text-[#F7F2FB]">
+                {selectedArea.name}
+              </Text>
+              <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
+                {formatDate(selectedDate.toISOString())}
+                {reservationStartTime && reservationEndTime
+                  ? ` · ${formatTimeRange(
+                      reservationStartTime,
+                      reservationEndTime,
+                    )}`
+                  : ''}
+              </Text>
+            </View>
+          ) : null}
 
           <SelectField
             label="Unidad"
             options={unitOptions}
             value={selectedUnitId}
             onChange={setSelectedUnitId}
-          />
-
-          <SelectField
-            label="Hora de inicio"
-            options={startTimeOptions}
-            value={reservationStartTime}
-            onChange={setReservationStartTime}
-          />
-
-          <SelectField
-            label="Hora de fin"
-            options={endTimeOptions}
-            value={reservationEndTime}
-            onChange={setReservationEndTime}
           />
 
           <InputField
@@ -733,11 +734,11 @@ export default function CommonAreas() {
       >
         <View className="gap-4">
           {selectedReservation ? (
-            <View className="gap-1 rounded-2xl border border-light-gray bg-[#F8F7FA] px-4 py-4">
-              <Text className="font-body-semibold text-base text-primary">
+            <View className="gap-1 rounded-2xl border border-light-gray dark:border-[#3B3345] bg-[#F8F7FA] dark:bg-[#18131F] px-4 py-4">
+              <Text className="font-body-semibold text-base text-primary dark:text-[#F7F2FB]">
                 {selectedReservation.area.name}
               </Text>
-              <Text className="font-body text-sm text-med-gray">
+              <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                 {formatDate(selectedReservation.startAt)} ·{' '}
                 {formatTimeRange(
                   selectedReservation.startAt,

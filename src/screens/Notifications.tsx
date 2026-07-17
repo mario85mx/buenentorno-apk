@@ -1,3 +1,4 @@
+import { useAppThemeColors } from '../theme/tokens';
 import { useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
@@ -22,6 +23,7 @@ export default function Notifications({
   onOpenNotification,
   onMarkAsSeen,
 }: NotificationsProps) {
+  const themeColors = useAppThemeColors();
   const notificationsQuery = useQuery({
     queryKey: queryKeys.notifications,
     queryFn: getNotifications,
@@ -42,15 +44,15 @@ export default function Notifications({
         className="flex-row items-center self-start rounded-full px-1 py-1"
         onPress={onBack}
       >
-        <Ionicons color="#18052E" name="chevron-back" size={20} />
-        <Text className="font-heading text-sm text-primary">Volver</Text>
+        <Ionicons color={themeColors.text} name="chevron-back" size={20} />
+        <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">Volver</Text>
       </Pressable>
 
       <View className="gap-2">
-        <Text className="font-heading text-2xl text-primary">
+        <Text className="font-heading text-2xl text-primary dark:text-[#F7F2FB]">
           Notificaciones
         </Text>
-        <Text className="font-body text-base text-med-gray">
+        <Text className="font-body text-base text-med-gray dark:text-[#B9B2C2]">
           Revisa los últimos movimientos y eventos relevantes de tu cuenta.
         </Text>
       </View>
@@ -58,13 +60,13 @@ export default function Notifications({
       <View className="gap-3">
         {!isAvailable ? (
           <Card width="full">
-            <Text className="font-body text-sm text-med-gray">
+            <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
               Este perfil no tiene notificaciones disponibles.
             </Text>
           </Card>
         ) : notificationsQuery.isLoading ? (
           <Card width="full">
-            <Text className="font-body text-sm text-med-gray">
+            <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
               Cargando notificaciones...
             </Text>
           </Card>
@@ -99,15 +101,15 @@ export default function Notifications({
 
                   <View className="flex-1 gap-1">
                     <View className="flex-row items-center justify-between gap-3">
-                      <Text className="flex-1 font-heading text-base text-primary">
+                      <Text className="flex-1 font-heading text-base text-primary dark:text-[#F7F2FB]">
                         {notification.title}
                       </Text>
-                      <Text className="font-body text-xs text-med-gray">
+                      <Text className="font-body text-xs text-med-gray dark:text-[#B9B2C2]">
                         {notification.time}
                       </Text>
                     </View>
 
-                    <Text className="font-body text-sm leading-5 text-primary">
+                    <Text className="font-body text-sm leading-5 text-primary dark:text-[#F7F2FB]">
                       {notification.message}
                     </Text>
                   </View>
@@ -117,7 +119,7 @@ export default function Notifications({
           ))
         ) : (
           <Card width="full">
-            <Text className="font-body text-sm text-med-gray">
+            <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
               No hay notificaciones nuevas.
             </Text>
           </Card>

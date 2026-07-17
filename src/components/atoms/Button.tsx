@@ -6,6 +6,7 @@ import {
   PressableProps,
   Text,
 } from 'react-native';
+import { useAppThemeColors } from '../../theme/tokens';
 
 type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'outline';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -31,7 +32,7 @@ const textVariants: Record<ButtonVariant, string> = {
   primary: 'text-white',
   secondary: 'text-white',
   danger: 'text-white',
-  outline: 'text-primary',
+  outline: 'text-primary dark:text-[#F7F2FB]',
 };
 
 const sizeVariants: Record<ButtonSize, string> = {
@@ -63,9 +64,10 @@ export function Button({
   children,
   ...props
 }: ButtonProps) {
+  const themeColors = useAppThemeColors();
   const isDisabled = disabled || loading;
   const textContent = children ?? title ?? label;
-  const iconColor = '#ffffff';
+  const iconColor = variant === 'outline' ? themeColors.text : '#ffffff';
 
   return (
     <Pressable

@@ -14,7 +14,7 @@ export default function PrivacyNoticeLink() {
       hitSlop={8}
       onPress={handlePress}
     >
-      <Text className="font-body text-sm text-[#2D5BBD] underline">
+      <Text className="font-body text-sm text-[#2D5BBD] underline dark:text-[#91B4FF]">
         Aviso de Privacidad
       </Text>
     </Pressable>

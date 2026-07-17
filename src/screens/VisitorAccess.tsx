@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../components/atoms/Button';
 import Card from '../components/atoms/Card';
 import DatePickerField from '../components/molecules/DatePickerField';
+import TimePickerField from '../components/molecules/TimePickerField';
 import InputField from '../components/molecules/InputField';
 import SelectField from '../components/molecules/SelectField';
 import MobileTabs from '../components/organisms/MobileTabs';
@@ -102,22 +103,22 @@ function formatStatus(value: VisitorAccessStatus) {
 
 function statusTone(status: VisitorAccessStatus) {
   if (status === 'ACTIVE') {
-    return 'bg-[#E8F7EE] text-success';
+    return 'bg-[#E8F7EE] dark:bg-[#20352A] text-success';
   }
 
   if (status === 'USED') {
-    return 'bg-[#E8F1FE] text-[#2D5BBD]';
+    return 'bg-[#E8F1FE] dark:bg-[#202D43] text-[#2D5BBD] dark:text-[#91B4FF]';
   }
 
   if (status === 'PENDING_APPROVAL') {
-    return 'bg-[#FFF7E6] text-warning';
+    return 'bg-[#FFF7E6] dark:bg-[#3A3020] text-warning';
   }
 
   if (status === 'REJECTED') {
-    return 'bg-[#FDECEC] text-danger';
+    return 'bg-[#FDECEC] dark:bg-[#3B2026] text-danger';
   }
 
-  return 'bg-[#EEF0F3] text-med-gray';
+  return 'bg-[#EEF0F3] dark:bg-[#2A2730] text-med-gray dark:text-[#B9B2C2]';
 }
 
 function formatVehicle(
@@ -139,19 +140,6 @@ function buildLogSummary(log: VisitorAccessLogEntryDto) {
   ].filter(Boolean);
 
   return parts.join(' · ');
-}
-
-function createTimeOptions() {
-  const output: Array<{ label: string; value: string }> = [];
-
-  for (let hour = 0; hour < 24; hour += 1) {
-    for (let minute = 0; minute < 60; minute += 30) {
-      const value = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-      output.push({ label: value, value });
-    }
-  }
-
-  return output;
 }
 
 function combineDateAndTime(date: Date, time: string) {
@@ -399,7 +387,6 @@ export default function VisitorAccess({
     operatorLogsQuery.error,
   ]);
 
-  const timeOptions = useMemo(() => createTimeOptions(), []);
   const todayLogs = operatorLogsQuery.data ?? [];
   const myAccesses = myAccessesQuery.data ?? [];
   const residentUnits = condominoQuery.data?.units ?? [];
@@ -618,7 +605,7 @@ export default function VisitorAccess({
         content: (
           <View className="gap-4">
             {!hasLinkedCondomino ? (
-              <View className="rounded-2xl border border-[#F1A2A2] bg-[#FDECEC] px-4 py-3">
+              <View className="rounded-2xl border border-[#F1A2A2] bg-[#FDECEC] dark:bg-[#3B2026] px-4 py-3">
                 <Text className="font-body text-sm text-danger">
                   Tu cuenta no tiene un condómino vinculado en el backend.
                 </Text>
@@ -626,7 +613,7 @@ export default function VisitorAccess({
             ) : null}
 
             {hasLinkedCondomino && !residentCanCreate ? (
-              <View className="rounded-2xl border border-[#F5C79A] bg-[#FFF7E6] px-4 py-3">
+              <View className="rounded-2xl border border-[#F5C79A] bg-[#FFF7E6] dark:bg-[#3A3020] px-4 py-3">
                 <Text className="font-body text-sm text-warning">
                   Tu cuenta tiene {residentUnits.length || 0} viviendas vinculadas. Por ahora la app móvil solo puede crear accesos cuando existe exactamente una vivienda asociada.
                 </Text>
@@ -634,7 +621,7 @@ export default function VisitorAccess({
             ) : null}
 
             {!availableVisitTypeOptions.length ? (
-              <View className="rounded-2xl border border-[#F5C79A] bg-[#FFF7E6] px-4 py-3">
+              <View className="rounded-2xl border border-[#F5C79A] bg-[#FFF7E6] dark:bg-[#3A3020] px-4 py-3">
                 <Text className="font-body text-sm text-warning">
                   Este condominio no tiene tipos de acceso activos. Deben habilitarse desde la gestión del condominio.
                 </Text>
@@ -739,12 +726,12 @@ export default function VisitorAccess({
               }
             />
 
-            <SelectField
+            <TimePickerField
               disabled={createMutation.isPending}
               label="Hora de inicio"
-              options={timeOptions}
+              minuteInterval={30}
               value={residentForm.validFromTime}
-              onChange={(value) =>
+              onChange={(value: string) =>
                 setResidentForm((current) => ({ ...current, validFromTime: value }))
               }
             />
@@ -760,18 +747,18 @@ export default function VisitorAccess({
               }
             />
 
-            <SelectField
+            <TimePickerField
               disabled={createMutation.isPending}
               label="Hora de fin"
-              options={timeOptions}
+              minuteInterval={30}
               value={residentForm.validToTime}
-              onChange={(value) =>
+              onChange={(value: string) =>
                 setResidentForm((current) => ({ ...current, validToTime: value }))
               }
             />
 
             {residentError ? (
-              <View className="rounded-2xl border border-[#F1A2A2] bg-[#FDECEC] px-4 py-3">
+              <View className="rounded-2xl border border-[#F1A2A2] bg-[#FDECEC] dark:bg-[#3B2026] px-4 py-3">
                 <Text className="font-body text-sm text-danger">
                   {residentError}
                 </Text>
@@ -796,31 +783,31 @@ export default function VisitorAccess({
         content: (
           <View className="gap-4">
             {myAccessesQuery.isLoading ? (
-              <Text className="font-body text-sm text-med-gray">
+              <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                 Cargando accesos...
               </Text>
             ) : residentQueryError ? (
-              <View className="rounded-2xl border border-[#F1A2A2] bg-[#FDECEC] px-4 py-3">
+              <View className="rounded-2xl border border-[#F1A2A2] bg-[#FDECEC] dark:bg-[#3B2026] px-4 py-3">
                 <Text className="font-body text-sm text-danger">
                   {residentQueryError}
                 </Text>
               </View>
             ) : myAccesses.length === 0 ? (
-              <Text className="font-body text-sm text-med-gray">
+              <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                 Todavía no has generado accesos.
               </Text>
             ) : (
               myAccesses.map((access) => (
                 <View
                   key={access.id}
-                  className="rounded-3xl border border-[#ECE8F3] bg-white px-4 py-4"
+                  className="rounded-3xl border border-[#ECE8F3] bg-white dark:bg-[#211A29] px-4 py-4"
                 >
                   <View className="flex-row items-start justify-between gap-3">
                     <View className="flex-1">
-                      <Text className="font-body-semibold text-base text-primary">
+                      <Text className="font-body-semibold text-base text-primary dark:text-[#F7F2FB]">
                         {access.visitorName}
                       </Text>
-                      <Text className="mt-1 font-body text-sm text-med-gray">
+                      <Text className="mt-1 font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                         {formatVisitType(access.visitType)} · Casa {access.unit.houseNumber}
                       </Text>
                     </View>
@@ -832,10 +819,10 @@ export default function VisitorAccess({
                   </View>
 
                   <View className="mt-3 gap-1">
-                    <Text className="font-body text-sm text-primary">
+                    <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                       Vigencia: {formatDateTime(access.validFrom)} - {formatDateTime(access.validTo)}
                     </Text>
-                    <Text className="font-body text-sm text-primary">
+                    <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                       Vehículo: {formatVehicle(access.vehicle)}
                     </Text>
                     {access.rejectionReason ? (
@@ -879,7 +866,6 @@ export default function VisitorAccess({
       residentForm,
       residentQueryError,
       residentUnits.length,
-      timeOptions,
     ],
   );
 
@@ -888,10 +874,10 @@ export default function VisitorAccess({
       <>
         <View className="gap-5">
           <View className="gap-2">
-            <Text className="font-heading text-[28px] text-primary">
+            <Text className="font-heading text-[28px] text-primary dark:text-[#F7F2FB]">
               Control de accesos
             </Text>
-            <Text className="font-body text-sm leading-6 text-med-gray">
+            <Text className="font-body text-sm leading-6 text-med-gray dark:text-[#B9B2C2]">
               Escanea el QR, valida el acceso y registra entrada o salida desde el teléfono.
             </Text>
           </View>
@@ -899,8 +885,8 @@ export default function VisitorAccess({
           <View className="flex-row flex-wrap justify-between gap-y-4">
             {operatorMetrics.map((metric) => (
               <Card key={metric.label} width="half">
-                <Text className="font-body text-sm text-primary">{metric.label}</Text>
-                <Text className="mt-2 font-heading text-2xl text-secondary">
+                <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">{metric.label}</Text>
+                <Text className="mt-2 font-heading text-2xl text-secondary dark:text-[#E9DDF6]">
                   {metric.value}
                 </Text>
               </Card>
@@ -909,7 +895,7 @@ export default function VisitorAccess({
 
           <Card>
             <View className="gap-4">
-              <Text className="font-heading text-lg text-primary">
+              <Text className="font-heading text-lg text-primary dark:text-[#F7F2FB]">
                 Escaneo móvil
               </Text>
 
@@ -924,12 +910,12 @@ export default function VisitorAccess({
                 }}
               />
 
-              <Text className="font-body text-sm leading-6 text-med-gray">
+              <Text className="font-body text-sm leading-6 text-med-gray dark:text-[#B9B2C2]">
                 La cámara se abre en pantalla completa y se cierra sola cuando detecta el código.
               </Text>
 
               {scannerError ? (
-                <View className="rounded-2xl border border-[#F5C79A] bg-[#FFF7E6] px-4 py-3">
+                <View className="rounded-2xl border border-[#F5C79A] bg-[#FFF7E6] dark:bg-[#3A3020] px-4 py-3">
                   <Text className="font-body text-sm text-warning">
                     {scannerError}
                   </Text>
@@ -960,7 +946,7 @@ export default function VisitorAccess({
 
           <Card>
             <View className="gap-4">
-              <Text className="font-heading text-lg text-primary">
+              <Text className="font-heading text-lg text-primary dark:text-[#F7F2FB]">
                 Registro operativo
               </Text>
 
@@ -983,7 +969,7 @@ export default function VisitorAccess({
               />
 
               {operatorError ? (
-                <View className="rounded-2xl border border-[#F1A2A2] bg-[#FDECEC] px-4 py-3">
+                <View className="rounded-2xl border border-[#F1A2A2] bg-[#FDECEC] dark:bg-[#3B2026] px-4 py-3">
                   <Text className="font-body text-sm text-danger">
                     {operatorError}
                   </Text>
@@ -991,13 +977,13 @@ export default function VisitorAccess({
               ) : null}
 
               {validatedAccess ? (
-                <View className="rounded-3xl bg-[#F8F7FA] p-4">
+                <View className="rounded-3xl bg-[#F8F7FA] dark:bg-[#18131F] p-4">
                   <View className="flex-row items-start justify-between gap-3">
                     <View className="flex-1">
-                      <Text className="font-heading text-lg text-primary">
+                      <Text className="font-heading text-lg text-primary dark:text-[#F7F2FB]">
                         {validatedAccess.visitorName}
                       </Text>
-                      <Text className="mt-1 font-body text-sm text-med-gray">
+                      <Text className="mt-1 font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                         {formatVisitType(validatedAccess.visitType)} · Casa {validatedAccess.unit}
                       </Text>
                     </View>
@@ -1009,35 +995,35 @@ export default function VisitorAccess({
                   </View>
 
                   <View className="mt-4 gap-2">
-                    <Text className="font-body text-sm text-primary">
+                    <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                       Residente: {validatedAccess.resident?.name ?? 'Sin residente'}
                     </Text>
-                    <Text className="font-body text-sm text-primary">
+                    <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                       Teléfono: {validatedAccess.visitorPhone || 'Sin teléfono'}
                     </Text>
-                    <Text className="font-body text-sm text-primary">
+                    <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                       Empresa: {validatedAccess.companyName || 'Sin empresa'}
                     </Text>
-                    <Text className="font-body text-sm text-primary">
+                    <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                       Rastreo: {validatedAccess.trackingNumber || 'Sin rastreo'}
                     </Text>
-                    <Text className="font-body text-sm text-primary">
+                    <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                       Personas: {validatedAccess.peopleCount ?? 'Sin dato'}
                     </Text>
-                    <Text className="font-body text-sm text-primary">
+                    <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                       Vehículo: {formatVehicle(validatedAccess.vehicle)}
                     </Text>
-                    <Text className="font-body text-sm text-primary">
+                    <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                       Vigencia: {formatDateTime(validatedAccess.validFrom)} - {formatDateTime(validatedAccess.validTo)}
                     </Text>
-                    <Text className="font-body text-sm text-primary">
+                    <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                       Creado por: {validatedAccess.createdBy.name}
                     </Text>
                   </View>
                 </View>
               ) : (
-                <View className="rounded-3xl bg-[#F8F7FA] px-4 py-5">
-                  <Text className="font-body text-sm text-med-gray">
+                <View className="rounded-3xl bg-[#F8F7FA] dark:bg-[#18131F] px-4 py-5">
+                  <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                     Aún no hay un acceso validado.
                   </Text>
                 </View>
@@ -1069,22 +1055,22 @@ export default function VisitorAccess({
 
           <Card>
             <View className="gap-4">
-              <Text className="font-heading text-lg text-primary">
+              <Text className="font-heading text-lg text-primary dark:text-[#F7F2FB]">
                 Bitácora del día
               </Text>
 
               {operatorLogsQuery.isLoading ? (
-                <Text className="font-body text-sm text-med-gray">
+                <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                   Cargando registros...
                 </Text>
               ) : operatorQueryError ? (
-                <View className="rounded-2xl border border-[#F1A2A2] bg-[#FDECEC] px-4 py-3">
+                <View className="rounded-2xl border border-[#F1A2A2] bg-[#FDECEC] dark:bg-[#3B2026] px-4 py-3">
                   <Text className="font-body text-sm text-danger">
                     {operatorQueryError}
                   </Text>
                 </View>
               ) : todayLogs.length === 0 ? (
-                <Text className="font-body text-sm text-med-gray">
+                <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                   No hay movimientos registrados hoy.
                 </Text>
               ) : (
@@ -1092,14 +1078,14 @@ export default function VisitorAccess({
                   {todayLogs.map((log) => (
                     <View
                       key={log.id}
-                      className="rounded-3xl border border-[#ECE8F3] bg-white px-4 py-4"
+                      className="rounded-3xl border border-[#ECE8F3] bg-white dark:bg-[#211A29] px-4 py-4"
                     >
                       <View className="flex-row items-start justify-between gap-3">
                         <View className="flex-1">
-                          <Text className="font-body-semibold text-base text-primary">
+                          <Text className="font-body-semibold text-base text-primary dark:text-[#F7F2FB]">
                             {log.access.visitorName}
                           </Text>
-                          <Text className="mt-1 font-body text-sm text-med-gray">
+                          <Text className="mt-1 font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                             {formatVisitType(log.access.visitType)} · Casa {log.access.unit.houseNumber}
                           </Text>
                         </View>
@@ -1111,22 +1097,22 @@ export default function VisitorAccess({
                       </View>
 
                       {buildLogSummary(log) ? (
-                        <Text className="mt-3 font-body text-sm leading-6 text-primary">
+                        <Text className="mt-3 font-body text-sm leading-6 text-primary dark:text-[#F7F2FB]">
                           {buildLogSummary(log)}
                         </Text>
                       ) : null}
 
                       <View className="mt-3 gap-1">
-                        <Text className="font-body text-sm text-primary">
+                        <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                           Entrada: {formatDateTime(log.entryAt, 'Sin entrada')}
                         </Text>
-                        <Text className="font-body text-sm text-primary">
+                        <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                           Salida: {formatDateTime(log.exitAt, 'Sin salida')}
                         </Text>
-                        <Text className="font-body text-sm text-primary">
+                        <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                           Guardias: {[log.entryGuardName, log.exitGuardName].filter(Boolean).join(' / ') || 'Sin guardia'}
                         </Text>
-                        <Text className="font-body text-sm text-primary">
+                        <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">
                           Notas: {[log.entryNotes, log.exitNotes].filter(Boolean).join(' / ') || 'Sin notas'}
                         </Text>
                       </View>
@@ -1181,10 +1167,10 @@ export default function VisitorAccess({
   return (
     <View className="gap-5">
       <View className="gap-2">
-        <Text className="font-heading text-[28px] text-primary">
+        <Text className="font-heading text-[28px] text-primary dark:text-[#F7F2FB]">
           Mis accesos
         </Text>
-        <Text className="font-body text-sm leading-6 text-med-gray">
+        <Text className="font-body text-sm leading-6 text-med-gray dark:text-[#B9B2C2]">
           Solicita pases para tus visitantes y consulta la vigencia de los accesos creados.
         </Text>
       </View>
@@ -1192,8 +1178,8 @@ export default function VisitorAccess({
       <View className="flex-row flex-wrap justify-between gap-y-4">
         {residentMetrics.map((metric) => (
           <Card key={metric.label} width="half">
-            <Text className="font-body text-sm text-primary">{metric.label}</Text>
-            <Text className="mt-2 font-heading text-2xl text-secondary">
+            <Text className="font-body text-sm text-primary dark:text-[#F7F2FB]">{metric.label}</Text>
+            <Text className="mt-2 font-heading text-2xl text-secondary dark:text-[#E9DDF6]">
               {metric.value}
             </Text>
           </Card>

@@ -85,14 +85,14 @@ export default function Account({ onLogout }: AccountProps) {
     <Card width="full">
       <View className="gap-6">
         <View className="gap-2">
-          <Text className="font-heading text-2xl text-primary">Mi cuenta</Text>
-          <Text className="font-body text-base text-med-gray">
+          <Text className="font-heading text-2xl text-primary dark:text-[#F7F2FB]">Mi cuenta</Text>
+          <Text className="font-body text-base text-med-gray dark:text-[#B9B2C2]">
             Actualiza la información básica registrada en tu acceso.
           </Text>
         </View>
 
         {meQuery.isLoading ? (
-          <Text className="font-body text-sm text-med-gray">
+          <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
             Cargando perfil...
           </Text>
         ) : meQuery.error ? (
@@ -137,16 +137,16 @@ export default function Account({ onLogout }: AccountProps) {
               />
             </View>
 
-            <View className="gap-3 rounded-2xl border border-light-gray bg-[#F8F7FA] p-4">
+            <View className="gap-3 rounded-2xl border border-light-gray dark:border-[#3B3345] bg-[#F8F7FA] dark:bg-[#18131F] p-4">
               {metaRows.map((row) => (
                 <View
                   key={row.label}
                   className="flex-row items-start justify-between gap-4"
                 >
-                  <Text className="font-heading text-sm text-primary">
+                  <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">
                     {row.label}
                   </Text>
-                  <Text className="flex-1 text-right font-body text-sm text-primary">
+                  <Text className="flex-1 text-right font-body text-sm text-primary dark:text-[#F7F2FB]">
                     {row.value}
                   </Text>
                 </View>

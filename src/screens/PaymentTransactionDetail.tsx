@@ -1,3 +1,4 @@
+import { useAppThemeColors } from '../theme/tokens';
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -25,6 +26,7 @@ export default function PaymentTransactionDetail({
   onBack,
   transaction,
 }: PaymentTransactionDetailProps) {
+  const themeColors = useAppThemeColors();
   const [isReceiptVisible, setIsReceiptVisible] = useState(false);
   const currentTransaction: PaymentTransaction = transaction ?? {
     id: 'movement-1',
@@ -121,15 +123,15 @@ export default function PaymentTransactionDetail({
         className="flex-row items-center self-start rounded-full px-1 py-1"
         onPress={onBack}
       >
-        <Ionicons color="#18052E" name="chevron-back" size={20} />
-        <Text className="font-heading text-sm text-primary">Volver</Text>
+        <Ionicons color={themeColors.text} name="chevron-back" size={20} />
+        <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">Volver</Text>
       </Pressable>
 
       <View className="gap-2">
-        <Text className="font-heading text-2xl text-primary">
+        <Text className="font-heading text-2xl text-primary dark:text-[#F7F2FB]">
           Detalle del movimiento
         </Text>
-        <Text className="font-body text-base text-med-gray">
+        <Text className="font-body text-base text-med-gray dark:text-[#B9B2C2]">
           Revisa el estado y la informacion del movimiento.
         </Text>
       </View>
@@ -138,7 +140,7 @@ export default function PaymentTransactionDetail({
         <View className="gap-5">
           {isReceiptVisible && currentReceipt ? (
             <View className="gap-5">
-              <View className="overflow-hidden rounded-2xl border border-light-gray bg-white">
+              <View className="overflow-hidden rounded-2xl border border-light-gray dark:border-[#3B3345] bg-white dark:bg-[#211A29]">
                 <View className="bg-primary px-5 py-5">
                   <Text className="font-heading text-2xl text-white">
                     Buen Entorno
@@ -152,10 +154,10 @@ export default function PaymentTransactionDetail({
 
                 <View className="gap-4 px-5 py-5">
                   <View className="gap-1">
-                    <Text className="font-heading text-lg text-primary">
+                    <Text className="font-heading text-lg text-primary dark:text-[#F7F2FB]">
                       Detalle del pago
                     </Text>
-                    <Text className="font-body text-sm text-med-gray">
+                    <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                       Puedes capturar esta pantalla si necesitas guardarlo como
                       imagen.
                     </Text>
@@ -165,32 +167,32 @@ export default function PaymentTransactionDetail({
                     {receiptRows.map((row) => (
                       <View
                         key={row.label}
-                        className="flex-row items-start justify-between gap-4 border-b border-light-gray pb-3"
+                        className="flex-row items-start justify-between gap-4 border-b border-light-gray dark:border-[#3B3345] pb-3"
                       >
-                        <Text className="font-heading text-sm text-primary">
+                        <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">
                           {row.label}
                         </Text>
-                        <Text className="flex-1 text-right font-body-semibold text-sm text-primary">
+                        <Text className="flex-1 text-right font-body-semibold text-sm text-primary dark:text-[#F7F2FB]">
                           {row.value}
                         </Text>
                       </View>
                     ))}
                   </View>
 
-                  <View className="gap-3 border-t border-light-gray pt-4">
-                    <Text className="font-heading text-lg text-primary">
+                  <View className="gap-3 border-t border-light-gray dark:border-[#3B3345] pt-4">
+                    <Text className="font-heading text-lg text-primary dark:text-[#F7F2FB]">
                       Conceptos liquidados
                     </Text>
                     <View className="gap-2">
                       {receiptConceptDetails.map((detail, index) => (
                         <View
                           key={`${detail.label}-${index}`}
-                          className="flex-row items-start justify-between gap-4 border-b border-light-gray pb-3"
+                          className="flex-row items-start justify-between gap-4 border-b border-light-gray dark:border-[#3B3345] pb-3"
                         >
-                          <Text className="flex-1 font-body-semibold text-base text-primary">
+                          <Text className="flex-1 font-body-semibold text-base text-primary dark:text-[#F7F2FB]">
                             {index + 1}. {detail.label}
                           </Text>
-                          <Text className="font-heading text-base text-primary">
+                          <Text className="font-heading text-base text-primary dark:text-[#F7F2FB]">
                             {detail.amount}
                           </Text>
                         </View>
@@ -199,10 +201,10 @@ export default function PaymentTransactionDetail({
                   </View>
 
                   <View className="gap-2 pt-2">
-                    <Text className="font-body text-xs text-med-gray">
+                    <Text className="font-body text-xs text-med-gray dark:text-[#B9B2C2]">
                       Documento generado desde el portal de condominio de Buen Entorno.
                     </Text>
-                    <Text className="font-body text-xs text-med-gray">
+                    <Text className="font-body text-xs text-med-gray dark:text-[#B9B2C2]">
                       Fecha de descarga: {downloadDate}
                     </Text>
                   </View>
@@ -219,10 +221,10 @@ export default function PaymentTransactionDetail({
             <>
               <View className="flex-row items-start justify-between gap-4">
                 <View className="flex-1 gap-2">
-                  <Text className="font-heading text-lg text-primary">
+                  <Text className="font-heading text-lg text-primary dark:text-[#F7F2FB]">
                     {currentTransaction.concept}
                   </Text>
-                  <Text className="font-body text-sm text-med-gray">
+                  <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
                     {currentTransaction.summary}
                   </Text>
                 </View>
@@ -239,19 +241,19 @@ export default function PaymentTransactionDetail({
               </View>
 
               <View className="gap-3">
-                <Text className="font-heading text-sm text-primary">
+                <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">
                   Conceptos
                 </Text>
                 <View className="gap-2">
                   {transactionConcepts.map((concept, index) => (
                     <View
                       key={`${concept}-${index}`}
-                      className="flex-row items-start gap-3 border-b border-light-gray pb-3"
+                      className="flex-row items-start gap-3 border-b border-light-gray dark:border-[#3B3345] pb-3"
                     >
-                      <Text className="font-heading text-sm text-primary">
+                      <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">
                         {index + 1}.
                       </Text>
-                      <Text className="flex-1 font-body-semibold text-sm text-primary">
+                      <Text className="flex-1 font-body-semibold text-sm text-primary dark:text-[#F7F2FB]">
                         {concept}
                       </Text>
                     </View>
@@ -263,12 +265,12 @@ export default function PaymentTransactionDetail({
                 {detailRows.map((row) => (
                   <View
                     key={row.label}
-                    className="flex-row items-start justify-between gap-4 border-b border-light-gray pb-3"
+                    className="flex-row items-start justify-between gap-4 border-b border-light-gray dark:border-[#3B3345] pb-3"
                   >
-                    <Text className="font-heading text-sm text-primary">
+                    <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">
                       {row.label}
                     </Text>
-                    <Text className="flex-1 text-right font-body-semibold text-sm text-primary">
+                    <Text className="flex-1 text-right font-body-semibold text-sm text-primary dark:text-[#F7F2FB]">
                       {row.value}
                     </Text>
                   </View>

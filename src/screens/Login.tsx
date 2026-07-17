@@ -47,7 +47,7 @@ export default function Login({ onLogin, onOpenRecovery }: LoginProps) {
       footer={
         <View className="gap-3">
           <View className="flex-row items-center justify-center gap-1">
-            <Text className="font-body text-sm text-med-gray">
+            <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
               ¿No recuerdas tu contraseña?
             </Text>
             <Pressable onPress={onOpenRecovery}>
@@ -57,7 +57,7 @@ export default function Login({ onLogin, onOpenRecovery }: LoginProps) {
             </Pressable>
           </View>
 
-          <Text className="text-center font-body text-xs leading-5 text-med-gray">
+          <Text className="text-center font-body text-xs leading-5 text-med-gray dark:text-[#B9B2C2]">
             Tu acceso esta protegido y vinculado a la cuenta registrada por la
             administracion.
           </Text>
@@ -97,7 +97,7 @@ export default function Login({ onLogin, onOpenRecovery }: LoginProps) {
 
       <View className="items-end">
         <Pressable onPress={onOpenRecovery}>
-          <Text className="font-body-semibold text-sm text-primary">
+          <Text className="font-body-semibold text-sm text-primary dark:text-[#F7F2FB]">
             Olvide mi contraseña
           </Text>
         </Pressable>

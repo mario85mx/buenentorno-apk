@@ -1,3 +1,4 @@
+import { useAppThemeColors } from '../theme/tokens';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,6 +30,7 @@ interface NewTicketProps {
 }
 
 export default function NewTicket({ onBack, onCreated }: NewTicketProps) {
+  const themeColors = useAppThemeColors();
   const queryClient = useQueryClient();
   const condominiumQuery = useQuery({
     queryKey: queryKeys.condominiumDetail,
@@ -80,15 +82,15 @@ export default function NewTicket({ onBack, onCreated }: NewTicketProps) {
         className="flex-row items-center self-start rounded-full px-1 py-1"
         onPress={onBack}
       >
-        <Ionicons color="#18052E" name="chevron-back" size={20} />
-        <Text className="font-heading text-sm text-primary">Volver</Text>
+        <Ionicons color={themeColors.text} name="chevron-back" size={20} />
+        <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">Volver</Text>
       </Pressable>
 
       <View className="gap-2">
-        <Text className="font-heading text-2xl text-primary">
+        <Text className="font-heading text-2xl text-primary dark:text-[#F7F2FB]">
           Nuevo ticket
         </Text>
-        <Text className="font-body text-base text-med-gray">
+        <Text className="font-body text-base text-med-gray dark:text-[#B9B2C2]">
           Registra una nueva solicitud o incidencia para seguimiento.
         </Text>
       </View>
@@ -96,7 +98,7 @@ export default function NewTicket({ onBack, onCreated }: NewTicketProps) {
       <Card width="full">
         <View className="gap-4">
           {condominiumQuery.isLoading ? (
-            <Text className="font-body text-sm text-med-gray">
+            <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
               Cargando unidades...
             </Text>
           ) : condominiumQuery.error ? (
@@ -162,8 +164,8 @@ export default function NewTicket({ onBack, onCreated }: NewTicketProps) {
                   multiline
                   numberOfLines={5}
                   placeholder="Escribe el detalle inicial del ticket"
-                  placeholderTextColor="#374151"
-                  selectionColor="#18052E"
+                  placeholderTextColor={themeColors.textMuted}
+                  selectionColor={themeColors.text}
                   textAlignVertical="top"
                   value={initialMessage}
                   onChangeText={(value) => {

@@ -132,7 +132,7 @@ export default function Header({
 
   return (
     <Animated.View
-      className="flex-row items-center justify-between border-b border-light-gray bg-primary px-5 py-4"
+      className="flex-row items-center justify-between border-b border-light-gray dark:border-[#3B3345] bg-primary px-5 py-4"
       style={{
         opacity: containerOpacity,
         transform: [{ translateY: containerTranslateY }],

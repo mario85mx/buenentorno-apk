@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
-import Button from '../atoms/Button';
+import { useMemo, useState } from 'react';
+import { Platform, Pressable, Text } from 'react-native';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import {
-  BottomSheet,
   FIELD_CONTROL_CLASS,
   FIELD_PLACEHOLDER_CLASS,
   FieldShell,
@@ -18,38 +17,30 @@ export interface DatePickerFieldProps {
   containerClassName?: string;
   minimumYear?: number;
   maximumYear?: number;
+  minimumDate?: Date;
+  maximumDate?: Date;
   onChange: (value: Date) => void;
 }
 
-const monthOptions = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-];
-
 function formatDate(date?: Date | null) {
-  if (!date) {
-    return '';
-  }
+  if (!date) return '';
 
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = String(date.getFullYear());
-
-  return `${day}/${month}/${year}`;
+  return new Intl.DateTimeFormat('es-MX', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date);
 }
 
-function getDaysInMonth(month: number, year: number) {
-  return new Date(year, month, 0).getDate();
+function normalizeDate(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function clampDate(date: Date, minimumDate: Date, maximumDate: Date) {
+  const normalized = normalizeDate(date);
+  if (normalized < minimumDate) return minimumDate;
+  if (normalized > maximumDate) return maximumDate;
+  return normalized;
 }
 
 export function DatePickerField({
@@ -61,51 +52,31 @@ export function DatePickerField({
   containerClassName,
   minimumYear = 1940,
   maximumYear = new Date().getFullYear(),
+  minimumDate: minimumDateProp,
+  maximumDate: maximumDateProp,
   onChange,
 }: DatePickerFieldProps) {
-  const initialValue = value ?? new Date(1990, 0, 1);
   const [isOpen, setIsOpen] = useState(false);
-  const [draftDay, setDraftDay] = useState(initialValue.getDate());
-  const [draftMonth, setDraftMonth] = useState(initialValue.getMonth() + 1);
-  const [draftYear, setDraftYear] = useState(initialValue.getFullYear());
+  const { minimumDate, maximumDate } = useMemo(() => {
+    const firstYear = Math.min(minimumYear, maximumYear);
+    const lastYear = Math.max(minimumYear, maximumYear);
+    const firstDate = minimumDateProp
+      ? normalizeDate(minimumDateProp)
+      : new Date(firstYear, 0, 1);
+    const lastDate = maximumDateProp
+      ? normalizeDate(maximumDateProp)
+      : new Date(lastYear, 11, 31);
 
-  const years = useMemo(() => {
-    const output: number[] = [];
+    return {
+      minimumDate: firstDate <= lastDate ? firstDate : lastDate,
+      maximumDate: firstDate <= lastDate ? lastDate : firstDate,
+    };
+  }, [maximumDateProp, maximumYear, minimumDateProp, minimumYear]);
+  const pickerDate = clampDate(value ?? new Date(), minimumDate, maximumDate);
 
-    for (let current = maximumYear; current >= minimumYear; current -= 1) {
-      output.push(current);
-    }
-
-    return output;
-  }, [maximumYear, minimumYear]);
-
-  const days = useMemo(() => {
-    const totalDays = getDaysInMonth(draftMonth, draftYear);
-
-    return Array.from({ length: totalDays }, (_, index) => index + 1);
-  }, [draftMonth, draftYear]);
-
-  useEffect(() => {
-    setDraftDay((current) => Math.min(current, getDaysInMonth(draftMonth, draftYear)));
-  }, [draftMonth, draftYear]);
-
-  const displayValue = formatDate(value);
-
-  const openPicker = () => {
-    const nextValue = value ?? new Date(1990, 0, 1);
-    setDraftDay(nextValue.getDate());
-    setDraftMonth(nextValue.getMonth() + 1);
-    setDraftYear(nextValue.getFullYear());
-    setIsOpen(true);
-  };
-
-  const confirmSelection = () => {
-    const boundedDay = Math.min(
-      draftDay,
-      getDaysInMonth(draftMonth, draftYear),
-    );
-    onChange(new Date(draftYear, draftMonth - 1, boundedDay));
+  const handleConfirm = (selectedDate: Date) => {
     setIsOpen(false);
+    onChange(normalizeDate(selectedDate));
   };
 
   return (
@@ -119,118 +90,38 @@ export function DatePickerField({
         label={label}
       >
         <Pressable
+          accessibilityHint="Abre el selector de fecha"
+          accessibilityLabel={label}
           accessibilityRole="button"
           className={cn(FIELD_CONTROL_CLASS, 'justify-center')}
           disabled={disabled}
-          onPress={openPicker}
+          onPress={() => setIsOpen(true)}
         >
           <Text
             className={cn(
               'font-body text-base',
-              value ? 'text-primary' : FIELD_PLACEHOLDER_CLASS,
+              value ? 'text-primary dark:text-[#F7F2FB]' : FIELD_PLACEHOLDER_CLASS,
             )}
           >
-            {displayValue || 'DD/MM/AAAA'}
+            {formatDate(value) || 'DD/MM/AAAA'}
           </Text>
         </Pressable>
       </FieldShell>
 
-      <BottomSheet
-        onClose={() => setIsOpen(false)}
-        title={label}
-        visible={isOpen}
-        footer={
-          <View className="flex-row gap-3">
-            <Button
-              className="flex-1 bg-white"
-              textClassName="text-primary"
-              title="Cancelar"
-              variant="secondary"
-              onPress={() => setIsOpen(false)}
-            />
-            <Button
-              className="flex-1"
-              title="Guardar"
-              onPress={confirmSelection}
-            />
-          </View>
-        }
-      >
-        <View className="flex-row gap-3">
-          <PickerColumn
-            label="Día"
-            onSelect={setDraftDay}
-            options={days}
-            selectedValue={draftDay}
-          />
-          <PickerColumn
-            label="Mes"
-            onSelect={setDraftMonth}
-            options={monthOptions.map((_, index) => index + 1)}
-            renderValue={(option) => monthOptions[option - 1]}
-            selectedValue={draftMonth}
-          />
-          <PickerColumn
-            label="Año"
-            onSelect={setDraftYear}
-            options={years}
-            selectedValue={draftYear}
-          />
-        </View>
-      </BottomSheet>
+      <DateTimePickerModal
+        cancelTextIOS="Cancelar"
+        confirmTextIOS="Guardar"
+        date={pickerDate}
+        display={Platform.OS === 'ios' ? 'inline' : 'default'}
+        isVisible={isOpen}
+        locale="es-MX"
+        maximumDate={maximumDate}
+        minimumDate={minimumDate}
+        mode="date"
+        onCancel={() => setIsOpen(false)}
+        onConfirm={handleConfirm}
+      />
     </>
-  );
-}
-
-interface PickerColumnProps {
-  label: string;
-  options: number[];
-  selectedValue: number;
-  onSelect: (value: number) => void;
-  renderValue?: (value: number) => string;
-}
-
-function PickerColumn({
-  label,
-  options,
-  selectedValue,
-  onSelect,
-  renderValue,
-}: PickerColumnProps) {
-  return (
-    <View className="flex-1">
-      <Text className="mb-3 px-1 font-body-semibold text-sm uppercase tracking-[0.8px] text-med-gray">
-        {label}
-      </Text>
-      <ScrollView
-        className="h-72 rounded-lg bg-[#F6F3FA] p-2"
-        showsVerticalScrollIndicator={false}
-      >
-        {options.map((option) => {
-          const isSelected = option === selectedValue;
-
-          return (
-            <Pressable
-              key={`${label}-${option}`}
-              className={cn(
-                'rounded-lg px-3 py-3',
-                isSelected && 'bg-primary',
-              )}
-              onPress={() => onSelect(option)}
-            >
-              <Text
-                className={cn(
-                  'text-center font-body text-base',
-                  isSelected ? 'text-white' : 'text-primary',
-                )}
-              >
-                {renderValue ? renderValue(option) : option}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-    </View>
   );
 }
 
