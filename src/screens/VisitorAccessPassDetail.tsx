@@ -162,10 +162,13 @@ export default function VisitorAccessPassDetail({
     setActionError('');
 
     try {
-      const permission = await requestPermissionsAsync(true);
+      // Saving a file created by the app only needs write access. Passing no
+      // granular permissions prevents requesting broad access to user media on
+      // Android 13+.
+      const permission = await requestPermissionsAsync(true, []);
 
       if (!permission.granted) {
-        throw new Error('Debes permitir acceso a fotos para guardar la imagen.');
+        throw new Error('Debes permitir que Buen Entorno guarde fotos.');
       }
 
       const imageUri = await captureCard();

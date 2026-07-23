@@ -380,13 +380,8 @@ export default function UploadReceipt({
     setActivePicker('photo');
 
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (!permission.granted) {
-        setErrorMessage('Necesitamos permiso para acceder a tus fotos.');
-        return;
-      }
-
+      // Android's system photo picker grants access only to the image selected
+      // by the user, so broad media-library permission is unnecessary.
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsMultipleSelection: false,

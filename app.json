@@ -2,7 +2,7 @@
   "expo": {
     "name": "Buen Entorno",
     "slug": "buenentorno-app",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -16,8 +16,13 @@
         "foregroundImage": "./assets/icon.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
+      "blockedPermissions": [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO"
+      ],
       "predictiveBackGestureEnabled": false,
-      "package": "com.buenentorno.appmx"
+      "package": "com.buenentorno.appmx",
+      "versionCode": 3
     },
     "web": {
       "bundler": "metro",
@@ -48,9 +53,11 @@
         "expo-media-library",
         {
           "photosPermission": "Buen Entorno necesita acceso a tus fotos para guardar la imagen del pase de acceso.",
-          "savePhotosPermission": "Buen Entorno necesita permiso para guardar la imagen del pase en tu galería."
+          "savePhotosPermission": "Buen Entorno necesita permiso para guardar la imagen del pase en tu galería.",
+          "granularPermissions": []
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "extra": {
       "eas": {
