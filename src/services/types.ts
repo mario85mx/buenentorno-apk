@@ -42,6 +42,7 @@ export type NotificationType =
 export interface AuthUserCondominium {
   id: number;
   name: string;
+  timeZone: string;
   activeModules: CondominiumModule[];
   enabledVisitorAccessTypes: VisitorAccessType[];
 }
@@ -237,6 +238,7 @@ export interface SurveyOptionDto {
   position: number;
   voteCount: number;
   isSelected: boolean;
+  voterHouseNumbers?: string[];
 }
 
 export interface SurveyDto {
@@ -374,6 +376,7 @@ export interface CommonAreaAuthorDto {
 export interface CommonAreaDto {
   id: number;
   condominiumId: number;
+  timeZone: string;
   name: string;
   description?: string | null;
   location?: string | null;
@@ -429,6 +432,7 @@ export type CommonAreaReservationStatus =
 export interface CommonAreaReservationAreaDto {
   id: number;
   name: string;
+  timeZone: string;
   location?: string | null;
 }
 

@@ -36,7 +36,7 @@ const reservationStatusOptions = [
 
 type ReservationStatusFilter = (typeof reservationStatusOptions)[number]['value'];
 
-function formatDate(dateString: string) {
+function formatDate(dateString: string, timeZone?: string) {
   const date = new Date(dateString);
   if (Number.isNaN(date.getTime())) {
     return dateString;
@@ -46,10 +46,11 @@ function formatDate(dateString: string) {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
+    ...(timeZone ? { timeZone } : {}),
   }).format(date);
 }
 
-function formatTimeRange(startAt: string, endAt: string) {
+function formatTimeRange(startAt: string, endAt: string, timeZone: string) {
   const start = new Date(startAt);
   const end = new Date(endAt);
 
@@ -60,6 +61,7 @@ function formatTimeRange(startAt: string, endAt: string) {
   const formatter = new Intl.DateTimeFormat('es-MX', {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone,
   });
 
   return `${formatter.format(start)} - ${formatter.format(end)}`;
@@ -104,16 +106,24 @@ function availabilityTone(status: CommonAreaAvailabilityStatus) {
   return 'bg-[#EEF0F3] dark:bg-[#2A2730] text-med-gray dark:text-[#B9B2C2]';
 }
 
-function isSameDay(dateString: string, selectedDate: Date) {
+function isSameDay(dateString: string, selectedDate: Date, timeZone: string) {
   const date = new Date(dateString);
   if (Number.isNaN(date.getTime())) {
     return false;
   }
 
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value ?? '';
+
   return (
-    date.getFullYear() === selectedDate.getFullYear() &&
-    date.getMonth() === selectedDate.getMonth() &&
-    date.getDate() === selectedDate.getDate()
+    `${part('year')}-${part('month')}-${part('day')}` ===
+    buildCommonAreaDateParam(selectedDate)
   );
 }
 
@@ -274,7 +284,11 @@ export default function CommonAreas() {
         )
         .filter((reservation) =>
           reservationDateFilter
-            ? isSameDay(reservation.startAt, reservationDateFilter)
+            ? isSameDay(
+                reservation.startAt,
+                reservationDateFilter,
+                reservation.area.timeZone,
+              )
             : true,
         )
         .sort(
@@ -501,10 +515,18 @@ export default function CommonAreas() {
                               {formatTimeRange(
                                 slot.startAt,
                                 slot.endAt,
+                                availabilityQuery.data?.area.timeZone ??
+                                  selectedArea?.timeZone ??
+                                  'America/Mexico_City',
                               )}
                             </Text>
                             <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
-                              {formatDate(slot.startAt)}
+                              {formatDate(
+                                slot.startAt,
+                                availabilityQuery.data?.area.timeZone ??
+                                  selectedArea?.timeZone ??
+                                  'America/Mexico_City',
+                              )}
                             </Text>
                           </View>
                           <View
@@ -598,8 +620,16 @@ export default function CommonAreas() {
                           {reservation.area.name}
                         </Text>
                         <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
-                          {formatDate(reservation.startAt)} ·{' '}
-                          {formatTimeRange(reservation.startAt, reservation.endAt)}
+                          {formatDate(
+                            reservation.startAt,
+                            reservation.area.timeZone,
+                          )}{' '}
+                          ·{' '}
+                          {formatTimeRange(
+                            reservation.startAt,
+                            reservation.endAt,
+                            reservation.area.timeZone,
+                          )}
                         </Text>
                       </View>
                       <View
@@ -683,6 +713,7 @@ export default function CommonAreas() {
                   ? ` · ${formatTimeRange(
                       reservationStartTime,
                       reservationEndTime,
+                      selectedArea.timeZone,
                     )}`
                   : ''}
               </Text>
@@ -739,10 +770,15 @@ export default function CommonAreas() {
                 {selectedReservation.area.name}
               </Text>
               <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
-                {formatDate(selectedReservation.startAt)} ·{' '}
+                {formatDate(
+                  selectedReservation.startAt,
+                  selectedReservation.area.timeZone,
+                )}{' '}
+                ·{' '}
                 {formatTimeRange(
                   selectedReservation.startAt,
                   selectedReservation.endAt,
+                  selectedReservation.area.timeZone,
                 )}
               </Text>
             </View>

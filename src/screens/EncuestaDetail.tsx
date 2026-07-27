@@ -13,6 +13,7 @@ import type { SurveyDto } from '../services/types';
 
 interface EncuestaDetailProps {
   surveyId: number;
+  canViewVoterHouses?: boolean;
   onBack?: () => void;
 }
 
@@ -33,6 +34,7 @@ function surveyStatusVariant(isOpen: boolean) {
 
 export default function EncuestaDetail({
   surveyId,
+  canViewVoterHouses = false,
   onBack,
 }: EncuestaDetailProps) {
   const themeColors = useAppThemeColors();
@@ -157,6 +159,40 @@ export default function EncuestaDetail({
                           <Text className="font-body text-xs text-med-gray dark:text-[#B9B2C2]">
                             {option.voteCount} voto{option.voteCount === 1 ? '' : 's'}
                           </Text>
+
+                          {canViewVoterHouses && option.voterHouseNumbers ? (
+                            <View className="mt-3 gap-2">
+                              <View className="flex-row items-center gap-1.5">
+                                <Ionicons
+                                  color={themeColors.textMuted}
+                                  name="home-outline"
+                                  size={14}
+                                />
+                                <Text className="font-body-semibold text-[11px] uppercase tracking-wide text-med-gray dark:text-[#B9B2C2]">
+                                  Casas que votaron
+                                </Text>
+                              </View>
+
+                              {option.voterHouseNumbers.length > 0 ? (
+                                <View className="flex-row flex-wrap gap-1.5">
+                                  {option.voterHouseNumbers.map((houseNumber) => (
+                                    <View
+                                      key={houseNumber}
+                                      className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 dark:border-slate-700 dark:bg-slate-800"
+                                    >
+                                      <Text className="font-body-semibold text-xs text-slate-700 dark:text-slate-200">
+                                        Casa {houseNumber}
+                                      </Text>
+                                    </View>
+                                  ))}
+                                </View>
+                              ) : (
+                                <Text className="font-body text-xs text-med-gray dark:text-[#B9B2C2]">
+                                  Ninguna casa ha votado por esta opción.
+                                </Text>
+                              )}
+                            </View>
+                          ) : null}
                         </View>
 
                         {isSelected ? (

@@ -1022,6 +1022,10 @@ function AppShell() {
                   surveysModuleEnabled ? (
                     <EncuestaDetail
                       surveyId={route.params.surveyId}
+                      canViewVoterHouses={
+                        currentAuthUser?.role === 'SUPERADMIN' ||
+                        currentAuthUser?.role === 'CONDO_ADMIN'
+                      }
                       onBack={() => navigation.goBack()}
                     />
                   ) : (
