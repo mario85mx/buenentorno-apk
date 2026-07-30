@@ -14,6 +14,10 @@ import Button from '../components/atoms/Button';
 import Card from '../components/atoms/Card';
 import { getApiAccessToken } from '../services/api';
 import type { PaymentReceipt } from '../services/viewModels';
+import {
+  formatPaidConceptLabel,
+  getPaymentReceiptLabels,
+} from '../utils/paymentReceiptLabels';
 
 export type { PaymentReceipt } from '../services/viewModels';
 
@@ -72,6 +76,7 @@ export default function PaymentReceiptDetail({
           label: concept,
           amount: currentReceipt.conceptsAmount ?? currentReceipt.amount,
         }));
+  const receiptLabels = getPaymentReceiptLabels(conceptDetails.length);
   const downloadDate = useMemo(() => formatReceiptDate(new Date()), []);
 
   const amountColor =
@@ -188,9 +193,9 @@ export default function PaymentReceiptDetail({
       label: 'Tipos',
       value: currentReceipt.types ?? (receiptConcepts.join(', ') || 'Pago reportado'),
     },
-    { label: 'Monto total pagado', value: currentReceipt.amount },
+    { label: receiptLabels.paidAmount, value: currentReceipt.amount },
     {
-      label: 'Monto de conceptos',
+      label: receiptLabels.conceptsAmount,
       value: currentReceipt.conceptsAmount ?? currentReceipt.amount,
     },
     {
@@ -198,11 +203,11 @@ export default function PaymentReceiptDetail({
       value: currentReceipt.creditGenerated ?? '$0.00',
     },
     { label: 'Fecha de pago', value: currentReceipt.paymentDate },
-    { label: 'Metodo', value: currentReceipt.method },
+    { label: 'Método', value: currentReceipt.method },
     { label: 'Referencia', value: currentReceipt.reference },
     { label: 'Clave de rastreo', value: currentReceipt.trackingKey },
     { label: 'Estatus', value: currentReceipt.status },
-    { label: 'Revision', value: currentReceipt.review },
+    { label: 'Revisión', value: currentReceipt.review },
   ];
 
   return (
@@ -264,26 +269,32 @@ export default function PaymentReceiptDetail({
             ))}
           </View>
 
-          <View className="gap-3 border-t border-light-gray dark:border-[#3B3345] pt-4">
-            <Text className="font-heading text-lg text-primary dark:text-[#F7F2FB]">
-              Conceptos liquidados
-            </Text>
-            <View className="gap-2">
-              {conceptDetails.map((detail, index) => (
-                <View
-                  key={`${detail.label}-${index}`}
-                  className="flex-row items-start justify-between gap-4 border-b border-light-gray dark:border-[#3B3345] pb-3"
-                >
-                  <Text className="flex-1 font-body-semibold text-base text-primary dark:text-[#F7F2FB]">
-                    {index + 1}. {detail.label}
-                  </Text>
-                  <Text className="font-heading text-base text-primary dark:text-[#F7F2FB]">
-                    {detail.amount}
-                  </Text>
-                </View>
-              ))}
+          {conceptDetails.length > 0 ? (
+            <View className="gap-3 border-t border-light-gray dark:border-[#3B3345] pt-4">
+              <Text className="font-heading text-lg text-primary dark:text-[#F7F2FB]">
+                {receiptLabels.conceptsTitle}
+              </Text>
+              <View className="gap-2">
+                {conceptDetails.map((detail, index) => (
+                  <View
+                    key={`${detail.label}-${index}`}
+                    className="flex-row items-start justify-between gap-4 border-b border-light-gray dark:border-[#3B3345] pb-3"
+                  >
+                    <Text className="flex-1 font-body-semibold text-base text-primary dark:text-[#F7F2FB]">
+                      {formatPaidConceptLabel(
+                        detail.label,
+                        index,
+                        conceptDetails.length,
+                      )}
+                    </Text>
+                    <Text className="font-heading text-base text-primary dark:text-[#F7F2FB]">
+                      {detail.amount}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             </View>
-          </View>
+          ) : null}
 
           <View className="gap-2 pt-2">
             <Text className="font-body text-xs text-med-gray dark:text-[#B9B2C2]">
