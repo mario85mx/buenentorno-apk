@@ -304,6 +304,9 @@ export interface TicketSummaryDto {
   messagesCount: number;
   resolvedAt?: string | null;
   closedAt?: string | null;
+  evidenceUrl?: string | null;
+  evidenceFileName?: string | null;
+  evidenceMimeType?: string | null;
   lastMessageAt: string;
   createdAt: string;
   updatedAt: string;
@@ -332,6 +335,7 @@ export interface CreateTicketPayload {
   condominoId?: number;
   unitId?: number;
   assignedAdminUserId?: number;
+  evidence?: UploadReceiptFilePayload;
 }
 
 export interface CreateTicketMessagePayload {

@@ -28,7 +28,28 @@ export async function getTicket(ticketId: number) {
 }
 
 export async function createTicket(payload: CreateTicketPayload) {
-  const { data } = await api.post<TicketDetailDto>('/tickets', payload);
+  if (!payload.evidence) {
+    const { data } = await api.post<TicketDetailDto>('/tickets', payload);
+    return data;
+  }
+
+  const form = new FormData();
+  form.append('subject', payload.subject);
+  form.append('category', payload.category);
+  if (payload.priority) form.append('priority', payload.priority);
+  form.append('message', payload.message);
+  if (payload.condominoId) form.append('condominoId', String(payload.condominoId));
+  if (payload.unitId) form.append('unitId', String(payload.unitId));
+  if (payload.assignedAdminUserId) form.append('assignedAdminUserId', String(payload.assignedAdminUserId));
+  form.append('evidence', {
+    uri: payload.evidence.uri,
+    name: payload.evidence.name,
+    type: payload.evidence.mimeType,
+  } as never);
+
+  const { data } = await api.post<TicketDetailDto>('/tickets', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
   return data;
 }
 
@@ -53,4 +74,3 @@ export async function updateTicket(
   );
   return data;
 }
-

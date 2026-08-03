@@ -34,6 +34,9 @@ export interface Ticket {
   lastActivity: string;
   messagesCount: number;
   messages: TicketMessage[];
+  evidenceUrl?: string | null;
+  evidenceFileName?: string | null;
+  evidenceMimeType?: string | null;
 }
 
 export interface NewTicketPayload {

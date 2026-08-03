@@ -1,8 +1,11 @@
 import { useAppThemeColors } from '../theme/tokens';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import {
+  Linking,
   Platform,
   Pressable,
   Text,
@@ -20,6 +23,7 @@ import {
   cn,
 } from '../components/molecules/fieldShared';
 import { getErrorMessage } from '../services/error';
+import { buildApiUrl, getApiAccessToken } from '../services/api';
 import { mapTicketDetailToViewModel } from '../services/mappers';
 import { queryKeys } from '../services/queryKeys';
 import { addTicketMessage, getTicket } from '../services/tickets';
@@ -37,6 +41,7 @@ export default function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
   const [feedbackTone, setFeedbackTone] = useState<'success' | 'danger'>(
     'success',
   );
+  const [openingEvidence, setOpeningEvidence] = useState(false);
   const queryClient = useQueryClient();
   const numericTicketId = Number(ticketId);
   const webTextareaRowsProps =
@@ -68,6 +73,41 @@ export default function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
   });
 
   const ticket = ticketQuery.data;
+  const openEvidence = async () => {
+    if (!ticket?.evidenceUrl || !FileSystem.cacheDirectory) return;
+    const accessToken = getApiAccessToken();
+    if (!accessToken) {
+      setFeedbackTone('danger');
+      setFeedbackMessage('Tu sesión ya no es válida.');
+      return;
+    }
+
+    setOpeningEvidence(true);
+    setFeedbackMessage('');
+    const extension = ticket.evidenceMimeType === 'application/pdf'
+      ? 'pdf'
+      : ticket.evidenceMimeType === 'image/png' ? 'png' : 'jpg';
+    try {
+      const result = await FileSystem.downloadAsync(
+        buildApiUrl(ticket.evidenceUrl),
+        `${FileSystem.cacheDirectory}ticket-${ticket.id}-evidencia.${extension}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      );
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(result.uri, {
+          dialogTitle: ticket.evidenceFileName ?? 'Evidencia',
+          mimeType: ticket.evidenceMimeType ?? undefined,
+        });
+      } else {
+        await Linking.openURL(result.uri);
+      }
+    } catch {
+      setFeedbackTone('danger');
+      setFeedbackMessage('No se pudo abrir la evidencia.');
+    } finally {
+      setOpeningEvidence(false);
+    }
+  };
   const detailRows = useMemo(
     () =>
       ticket
@@ -191,6 +231,17 @@ export default function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
                 </View>
               ))}
             </View>
+            {ticket.evidenceUrl ? (
+              <Button
+                icon="attach-outline"
+                title={ticket.evidenceFileName ?? 'Ver evidencia'}
+                variant="secondary"
+                loading={openingEvidence}
+                onPress={() => void openEvidence()}
+              />
+            ) : (
+              <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">Evidencia: Sin archivo</Text>
+            )}
           </View>
 
           <View className="gap-3">

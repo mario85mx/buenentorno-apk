@@ -1,4 +1,5 @@
 import { useAppThemeColors } from '../theme/tokens';
+import * as DocumentPicker from 'expo-document-picker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +9,7 @@ import Card from '../components/atoms/Card';
 import InputField from '../components/molecules/InputField';
 import SelectField from '../components/molecules/SelectField';
 import {
+  FIELD_CONTROL_CLASS,
   FIELD_INPUT_CLASS,
   FIELD_PLACEHOLDER_CLASS,
   FieldShell,
@@ -18,6 +20,9 @@ import { getErrorMessage } from '../services/error';
 import { buildTicketCreatePayload } from '../services/mappers';
 import { queryKeys } from '../services/queryKeys';
 import { createTicket } from '../services/tickets';
+import {
+  type UploadReceiptFilePayload,
+} from '../services/types';
 import {
   TicketPriority,
   ticketCategoryOptions,
@@ -54,6 +59,44 @@ export default function NewTicket({ onBack, onCreated }: NewTicketProps) {
   const [priority, setPriority] = useState<TicketPriority | null>('Media');
   const [initialMessage, setInitialMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [evidence, setEvidence] = useState<UploadReceiptFilePayload | null>(null);
+  const [pickingEvidence, setPickingEvidence] = useState(false);
+
+  const pickEvidence = async () => {
+    setPickingEvidence(true);
+    setErrorMessage('');
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['image/jpeg', 'image/png', 'application/pdf'],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      if (result.canceled) return;
+      const asset = result.assets[0];
+      if (!asset) return;
+      if (asset.size && asset.size > 5 * 1024 * 1024) {
+        setErrorMessage('La evidencia supera el peso máximo de 5 MB.');
+        return;
+      }
+      const normalizedName = asset.name.toLowerCase();
+      const mimeType = asset.mimeType === 'image/jpeg' || asset.mimeType === 'image/png' || asset.mimeType === 'application/pdf'
+        ? asset.mimeType
+        : normalizedName.endsWith('.jpg') || normalizedName.endsWith('.jpeg')
+          ? 'image/jpeg'
+          : normalizedName.endsWith('.png')
+            ? 'image/png'
+            : normalizedName.endsWith('.pdf')
+              ? 'application/pdf'
+              : null;
+      if (!mimeType) {
+        setErrorMessage('La evidencia debe ser un archivo JPG, PNG o PDF.');
+        return;
+      }
+      setEvidence({ uri: asset.uri, name: asset.name, mimeType, size: asset.size });
+    } finally {
+      setPickingEvidence(false);
+    }
+  };
 
   const houseOptions = useMemo(() => {
     const options = [{ label: 'General', value: 'general' }];
@@ -182,6 +225,25 @@ export default function NewTicket({ onBack, onCreated }: NewTicketProps) {
                 />
               </FieldShell>
 
+              <FieldShell label="Evidencia" helperText="Archivo opcional JPG, PNG o PDF. Máximo 5 MB.">
+                <Pressable
+                  accessibilityRole="button"
+                  className={cn(FIELD_CONTROL_CLASS, 'flex-row items-center justify-between gap-3')}
+                  disabled={pickingEvidence}
+                  onPress={() => void pickEvidence()}
+                >
+                  <Text className="flex-1 font-body text-base text-primary dark:text-[#F7F2FB]" numberOfLines={1}>
+                    {evidence?.name ?? 'Seleccionar archivo'}
+                  </Text>
+                  <Ionicons color={themeColors.textMuted} name={evidence ? 'checkmark-circle-outline' : 'cloud-upload-outline'} size={20} />
+                </Pressable>
+              </FieldShell>
+              {evidence ? (
+                <Pressable accessibilityRole="button" className="self-start px-2 py-1" onPress={() => setEvidence(null)}>
+                  <Text className="font-body-semibold text-sm text-danger">Quitar evidencia</Text>
+                </Pressable>
+              ) : null}
+
               <View className="gap-3 pt-2">
                 <Button
                   title="Crear ticket"
@@ -205,6 +267,7 @@ export default function NewTicket({ onBack, onCreated }: NewTicketProps) {
                         message: initialMessage.trim(),
                         condominoId: condominiumQuery.data.id,
                         unitId: house === 'general' ? undefined : Number(house),
+                        evidence: evidence ?? undefined,
                       }),
                       {
                         onSuccess: (ticket) => {

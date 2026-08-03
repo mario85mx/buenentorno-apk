@@ -850,6 +850,9 @@ export function mapTicketSummaryToViewModel(ticket: TicketSummaryDto): Ticket {
     createdAt: formatDateTime(ticket.createdAt),
     lastActivity: formatDateTime(ticket.lastMessageAt),
     messagesCount: ticket.messagesCount,
+    evidenceUrl: ticket.evidenceUrl,
+    evidenceFileName: ticket.evidenceFileName,
+    evidenceMimeType: ticket.evidenceMimeType,
     messages: [],
   };
 }
@@ -874,6 +877,7 @@ export function buildTicketCreatePayload(params: {
   message: string;
   condominoId?: number;
   unitId?: number;
+  evidence?: import('./types').UploadReceiptFilePayload;
 }) {
   return {
     subject: params.subject,
@@ -882,5 +886,6 @@ export function buildTicketCreatePayload(params: {
     message: params.message,
     condominoId: params.condominoId,
     unitId: params.unitId,
+    evidence: params.evidence,
   };
 }
