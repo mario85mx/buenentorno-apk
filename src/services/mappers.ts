@@ -536,6 +536,7 @@ function mapChargeToTransaction(
     concept: getMovementConceptPreview(concepts),
     concepts,
     summary: `Cargo de ${chargeTypeLabel(charge.type).toLowerCase()} asociado a la casa ${unit.houseNumber}.`,
+    notes: asText(charge.notes) ?? 'Sin notas',
     dateLabel: 'Fecha de vencimiento',
     dueDate: formatDate(charge.dueDate ?? charge.createdAt),
     status,

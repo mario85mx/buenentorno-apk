@@ -38,6 +38,7 @@ export default function PaymentTransactionDetail({
     concept: 'Mantenimiento Junio 2026',
     concepts: ['Mantenimiento Junio 2026'],
     summary: 'Cargo de mantenimiento asociado a la casa.',
+    notes: 'Sin notas',
     dateLabel: 'Fecha de vencimiento',
     dueDate: '10/06/2026',
     status: 'Pendiente',
@@ -78,6 +79,9 @@ export default function PaymentTransactionDetail({
       label: 'Metodo de pago',
       value: currentReceipt?.method ?? currentTransaction.method,
     },
+    ...(currentTransaction.kind === 'charge'
+      ? [{ label: 'Notas', value: currentTransaction.notes ?? 'Sin notas' }]
+      : []),
   ];
   const amountColor =
     currentTransaction.status === 'Pagado'

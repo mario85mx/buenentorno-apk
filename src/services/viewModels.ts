@@ -38,6 +38,7 @@ export interface PaymentTransaction {
   concept: string;
   concepts: string[];
   summary: string;
+  notes?: string;
   dateLabel: string;
   dueDate: string;
   status: TransactionStatus;
