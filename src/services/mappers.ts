@@ -359,7 +359,10 @@ function getPaymentConceptDetails(
   payment: PaymentDto,
   unit: UnitDetailDto,
 ): PaymentConceptDetail[] {
-  const detailMap = new Map<string, number>();
+  const detailMap = new Map<
+    string,
+    { label: string; amount: number; notes: string }
+  >();
 
   payment.allocations.forEach((allocation) => {
     const charge = allocation.chargeId
@@ -369,14 +372,24 @@ function getPaymentConceptDetails(
       charge?.concept ??
       (payment.types.length === 1 ? chargeTypeLabel(payment.types[0]) : null) ??
       'Pago reportado';
-    const current = detailMap.get(label) ?? 0;
-    detailMap.set(label, current + allocation.amount);
+    const detailKey = charge ? `charge-${charge.id}` : label;
+    const current = detailMap.get(detailKey);
+    detailMap.set(detailKey, {
+      label,
+      amount: (current?.amount ?? 0) + allocation.amount,
+      notes:
+        current?.notes ??
+        asText(charge?.notes) ??
+        asText(charge?.description) ??
+        'Sin notas',
+    });
   });
 
   if (detailMap.size > 0) {
-    return Array.from(detailMap.entries()).map(([label, amount]) => ({
-      label,
-      amount: formatCurrency(amount),
+    return Array.from(detailMap.values()).map((detail) => ({
+      label: detail.label,
+      amount: formatCurrency(detail.amount),
+      notes: detail.notes,
     }));
   }
   const fallbackConcepts = dedupeConcepts(payment.types.map(chargeTypeLabel));
@@ -385,10 +398,17 @@ function getPaymentConceptDetails(
     return fallbackConcepts.map((label) => ({
       label,
       amount: formatCurrency(payment.amount),
+      notes: asText(payment.notes) ?? 'Sin notas',
     }));
   }
 
-  return [{ label: 'Pago reportado', amount: formatCurrency(payment.amount) }];
+  return [
+    {
+      label: 'Pago reportado',
+      amount: formatCurrency(payment.amount),
+      notes: asText(payment.notes) ?? 'Sin notas',
+    },
+  ];
 }
 
 function getPaymentTypesSummary(payment: PaymentDto) {

@@ -66,6 +66,7 @@ export default function PaymentTransactionDetail({
       : receiptConcepts.map((concept) => ({
           label: concept,
           amount: currentReceipt?.conceptsAmount ?? currentReceipt?.amount ?? '$0.00',
+          notes: 'Sin notas',
         }));
   const receiptLabels = getPaymentReceiptLabels(receiptConceptDetails.length);
   const downloadDate = useMemo(() => formatReceiptDate(new Date()), []);
@@ -205,6 +206,10 @@ export default function PaymentTransactionDetail({
                                 index,
                                 receiptConceptDetails.length,
                               )}
+                              {'\n'}
+                              <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
+                                Notas: {detail.notes ?? 'Sin notas'}
+                              </Text>
                             </Text>
                             <Text className="font-heading text-base text-primary dark:text-[#F7F2FB]">
                               {detail.amount}

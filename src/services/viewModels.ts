@@ -13,6 +13,7 @@ export type TransactionBadgeVariant = 'success' | 'danger' | 'warning';
 export interface PaymentConceptDetail {
   label: string;
   amount: string;
+  notes?: string;
 }
 
 export interface PaymentTransactionReceipt {
