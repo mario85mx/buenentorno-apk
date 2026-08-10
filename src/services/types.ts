@@ -12,7 +12,8 @@ export type CondominiumModule =
   | 'TICKETS'
   | 'BULK_UPLOAD'
   | 'REPORTS'
-  | 'TRANSPARENCY';
+  | 'TRANSPARENCY'
+  | 'DOCUMENTS';
 export type ChargeType = 'MAINTENANCE' | 'WATER' | 'FINE' | 'DEBT' | 'OTHER';
 export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'DEPOSIT' | 'OTHER';
 export type ReceiptStatusCode = 'NOT_SENT' | 'PENDING_REVIEW' | 'APPROVED';
@@ -225,6 +226,20 @@ export interface NoticeDto {
 
 export interface ListNoticesResponse {
   data: NoticeDto[];
+}
+
+export interface CondominiumDocumentDto {
+  id: number;
+  fileName: string;
+  fileMimeType: string;
+  fileSize: number;
+  fileUrl: string;
+  uploadedBy?: NoticeAuthorDto | null;
+  createdAt: string;
+}
+
+export interface ListDocumentsResponse {
+  data: CondominiumDocumentDto[];
 }
 
 export interface SurveyAuthorDto {

@@ -32,6 +32,7 @@ import Account from './src/screens/Account';
 import AvisoDetail from './src/screens/AvisoDetail';
 import Avisos from './src/screens/Avisos';
 import CommonAreas from './src/screens/CommonAreas';
+import Documents from './src/screens/Documents';
 import EncuestaDetail from './src/screens/EncuestaDetail';
 import Encuestas from './src/screens/Encuestas';
 import Home from './src/screens/Home';
@@ -92,6 +93,7 @@ type RootRouteName =
   | 'avisos'
   | 'encuestas'
   | 'tickets'
+  | 'documentos'
   | 'visitor-access';
 
 type AppStackParamList = {
@@ -102,6 +104,7 @@ type AppStackParamList = {
   avisos: undefined;
   encuestas: undefined;
   tickets: undefined;
+  documentos: undefined;
   'payment-transaction-detail': { transaction: PaymentTransaction };
   'payment-receipt-detail': { receipt: PaymentReceipt };
   'upload-receipt': undefined;
@@ -146,6 +149,10 @@ function getActiveMenuKey(routeName: RootRouteName) {
 
   if (routeName === 'tickets') {
     return 'tickets';
+  }
+
+  if (routeName === 'documentos') {
+    return 'documentos';
   }
 
   return 'inicio';
@@ -255,6 +262,10 @@ function AppShell() {
     currentAuthUser,
     'TICKETS',
   );
+  const documentsModuleEnabled = isCondominiumModuleEnabled(
+    currentAuthUser,
+    'DOCUMENTS',
+  );
   const operatorFallbackRoute: RootRouteName = visitorAccessModuleEnabled
     ? 'visitor-access'
     : 'account';
@@ -318,9 +329,14 @@ function AppShell() {
       keys.push('tickets');
     }
 
+    if (documentsModuleEnabled) {
+      keys.push('documentos');
+    }
+
     return keys;
   }, [
     isAccessOperator,
+    documentsModuleEnabled,
     noticesModuleEnabled,
     shouldShowCommonAreasMenu,
     surveysModuleEnabled,
@@ -437,9 +453,14 @@ function AppShell() {
         return ticketsModuleEnabled;
       }
 
+      if (routeName === 'documentos') {
+        return documentsModuleEnabled;
+      }
+
       return true;
     },
     [
+      documentsModuleEnabled,
       noticesModuleEnabled,
       shouldShowCommonAreasMenu,
       surveysModuleEnabled,
@@ -637,6 +658,7 @@ function AppShell() {
           onAvisosPress={() => replaceRoot('avisos')}
           onCommonAreasPress={() => replaceRoot('common-areas')}
           onHomePress={() => replaceRoot(defaultRootRoute)}
+          onDocumentsPress={() => replaceRoot('documentos')}
           onNotificationsPress={() => {
             void markNotificationsAsSeen();
             replaceRoot('notifications');
@@ -904,6 +926,24 @@ function AppShell() {
                         })
                       }
                     />
+                  ) : (
+                    <RedirectToRoute
+                      navigation={navigation}
+                      routeName={resolveAccessibleRoute(defaultRootRoute)}
+                    />
+                  ),
+                )
+              }
+            </Stack.Screen>
+
+            <Stack.Screen name="documentos">
+              {({ navigation, route }) =>
+                renderLayout(
+                  navigation,
+                  'documentos',
+                  route.key,
+                  documentsModuleEnabled ? (
+                    <Documents />
                   ) : (
                     <RedirectToRoute
                       navigation={navigation}

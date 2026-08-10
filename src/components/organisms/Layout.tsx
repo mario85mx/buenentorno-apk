@@ -24,6 +24,7 @@ export interface LayoutProps {
   onAvisosPress?: () => void;
   onSurveysPress?: () => void;
   onTicketsPress?: () => void;
+  onDocumentsPress?: () => void;
   onProfilePress?: () => void;
   onNotificationsPress?: () => void;
   onLogout?: () => void;
@@ -69,6 +70,11 @@ const sidebarItems: SidebarItem[] = [
     label: 'Tickets',
     icon: { library: 'material-icons', name: 'support-agent' },
   },
+  {
+    key: 'documentos',
+    label: 'Documentos',
+    icon: { library: 'ionicons', name: 'folder-outline' },
+  },
 ];
 
 const navbarItems: NavbarItem[] = [
@@ -76,6 +82,7 @@ const navbarItems: NavbarItem[] = [
   { key: 'accesos', label: 'Accesos', icon: 'qr-code-outline' },
   { key: 'avisos', label: 'Avisos', icon: 'pulse-outline' },
   { key: 'tickets', label: 'Tickets', icon: 'ticket-outline' },
+  { key: 'documentos', label: 'Docs', icon: 'folder-outline' },
 ];
 
 const operatorSidebarItems: SidebarItem[] = [
@@ -100,6 +107,7 @@ export default function Layout({
   onAvisosPress,
   onSurveysPress,
   onTicketsPress,
+  onDocumentsPress,
   onProfilePress,
   onNotificationsPress,
   onLogout,
@@ -214,6 +222,10 @@ export default function Layout({
 
     if (key === 'tickets') {
       onTicketsPress?.();
+    }
+
+    if (key === 'documentos') {
+      onDocumentsPress?.();
     }
   };
 

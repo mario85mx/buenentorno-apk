@@ -3,6 +3,7 @@ export const queryKeys = {
   condominiumDetail: ['condominos', 'me'] as const,
   dashboardSummary: ['dashboard', 'summary'] as const,
   notices: ['notices'] as const,
+  documents: ['documents'] as const,
   surveys: ['surveys'] as const,
   surveyDetail: (surveyId: string | number) => ['surveys', surveyId] as const,
   notifications: ['notifications'] as const,
