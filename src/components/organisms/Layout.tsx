@@ -80,7 +80,9 @@ const sidebarItems: SidebarItem[] = [
 const navbarItems: NavbarItem[] = [
   { key: 'inicio', label: 'Inicio', icon: 'home-outline' },
   { key: 'accesos', label: 'Accesos', icon: 'qr-code-outline' },
-  { key: 'avisos', label: 'Avisos', icon: 'pulse-outline' },
+  { key: 'areas-comunes', label: 'Áreas', icon: 'calendar-outline' },
+  { key: 'avisos', label: 'Avisos', icon: 'notifications-outline' },
+  { key: 'encuestas', label: 'Encuestas', icon: 'stats-chart-outline' },
   { key: 'tickets', label: 'Tickets', icon: 'ticket-outline' },
   { key: 'documentos', label: 'Docs', icon: 'folder-outline' },
 ];
@@ -191,10 +193,12 @@ export default function Layout({
         : navbarItems.filter((item) => item.key !== 'areas-comunes');
 
       if (!allowedMenuKeys) {
-        return commonAreasFiltered;
+        return commonAreasFiltered.slice(0, 4);
       }
 
-      return commonAreasFiltered.filter((item) => allowedMenuKeys.has(item.key));
+      return commonAreasFiltered
+        .filter((item) => allowedMenuKeys.has(item.key))
+        .slice(0, 4);
     },
     [allowedMenuKeys, isOperatorMenu, showCommonAreasMenu],
   );

@@ -1,14 +1,19 @@
 import { useAppThemeColors } from '../theme/tokens';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ElementRef } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import ViewShot, { captureRef } from 'react-native-view-shot';
-import { Asset, requestPermissionsAsync } from 'expo-media-library';
 import Button from '../components/atoms/Button';
 import Card from '../components/atoms/Card';
+import {
+  clearDocumentsDirectoryUri,
+  loadDocumentsDirectoryUri,
+  storeDocumentsDirectoryUri,
+} from '../services/storage';
 import type { VisitorAccessCreatedDto, VisitorAccessStatus, VisitorAccessType } from '../services/types';
 
 export interface VisitorAccessPassDetailProps {
@@ -79,6 +84,17 @@ function statusTone(status: VisitorAccessStatus) {
   }
 
   return 'bg-[#EEF0F3] dark:bg-[#2A2730] text-med-gray dark:text-[#B9B2C2]';
+}
+
+async function selectImageDirectory() {
+  const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(
+    FileSystem.StorageAccessFramework.getUriForDirectoryInRoot('Download'),
+  );
+
+  if (!permissions.granted) return null;
+
+  await storeDocumentsDirectoryUri(permissions.directoryUri);
+  return permissions.directoryUri;
 }
 
 export default function VisitorAccessPassDetail({
@@ -161,19 +177,61 @@ export default function VisitorAccessPassDetail({
     setIsSaving(true);
     setActionError('');
 
-    try {
-      // Saving a file created by the app only needs write access. Passing no
-      // granular permissions prevents requesting broad access to user media on
-      // Android 13+.
-      const permission = await requestPermissionsAsync(true, []);
+    let imageUri: string | null = null;
 
-      if (!permission.granted) {
-        throw new Error('Debes permitir que Buen Entorno guarde fotos.');
+    try {
+      imageUri = await captureCard();
+
+      if (Platform.OS === 'android') {
+        let directoryUri = await loadDocumentsDirectoryUri();
+        if (!directoryUri) directoryUri = await selectImageDirectory();
+
+        if (!directoryUri) {
+          throw new Error('Selecciona una carpeta para guardar la imagen.');
+        }
+
+        let savedUri: string;
+        try {
+          savedUri = await FileSystem.StorageAccessFramework.createFileAsync(
+            directoryUri,
+            `pase-acceso-${access.id}`,
+            'image/png',
+          );
+        } catch {
+          await clearDocumentsDirectoryUri();
+          const newDirectoryUri = await selectImageDirectory();
+          if (!newDirectoryUri) {
+            throw new Error('Selecciona una carpeta para guardar la imagen.');
+          }
+          savedUri = await FileSystem.StorageAccessFramework.createFileAsync(
+            newDirectoryUri,
+            `pase-acceso-${access.id}`,
+            'image/png',
+          );
+        }
+
+        const imageContents = await FileSystem.readAsStringAsync(imageUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        await FileSystem.StorageAccessFramework.writeAsStringAsync(
+          savedUri,
+          imageContents,
+          { encoding: FileSystem.EncodingType.Base64 },
+        );
+        Alert.alert(
+          'Imagen guardada',
+          'El pase se guardó en la carpeta seleccionada.',
+        );
+        return;
       }
 
-      const imageUri = await captureCard();
-      await Asset.create(imageUri);
-      Alert.alert('Imagen guardada', 'El pase se guardó en tu galería.');
+      if (!(await Sharing.isAvailableAsync())) {
+        throw new Error('El dispositivo no permite guardar la imagen.');
+      }
+      await Sharing.shareAsync(imageUri, {
+        dialogTitle: `Guardar pase de acceso ${access.id}`,
+        mimeType: 'image/png',
+      });
     } catch (error) {
       setActionError(
         error instanceof Error
@@ -181,9 +239,12 @@ export default function VisitorAccessPassDetail({
           : 'No se pudo guardar la imagen del acceso.',
       );
     } finally {
+      if (imageUri) {
+        await FileSystem.deleteAsync(imageUri, { idempotent: true }).catch(() => undefined);
+      }
       setIsSaving(false);
     }
-  }, [captureCard]);
+  }, [access.id, captureCard]);
 
   return (
     <View className="gap-5">

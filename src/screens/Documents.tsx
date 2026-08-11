@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import * as FileSystem from 'expo-file-system/legacy';
-import { getContentUriAsync } from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useMemo, useState } from 'react';
 import {
+  Alert,
   Linking,
   Platform,
   Pressable,
@@ -19,6 +19,11 @@ import { buildApiUrl, getApiAccessToken } from '../services/api';
 import { isPdfDocument, listDocuments } from '../services/documents';
 import { getErrorMessage } from '../services/error';
 import { queryKeys } from '../services/queryKeys';
+import {
+  clearDocumentsDirectoryUri,
+  loadDocumentsDirectoryUri,
+  storeDocumentsDirectoryUri,
+} from '../services/storage';
 import type { CondominiumDocumentDto } from '../services/types';
 import { useAppThemeColors } from '../theme/tokens';
 
@@ -67,11 +72,28 @@ function fileExtension(fileName: string) {
   return extension?.replace(/[^a-z0-9]/g, '') || 'bin';
 }
 
+function fileNameWithoutExtension(fileName: string) {
+  const safeFileName = fileName.replace(/[\\/:*?"<>|]/g, '_').trim();
+  const extensionIndex = safeFileName.lastIndexOf('.');
+  return (extensionIndex > 0 ? safeFileName.slice(0, extensionIndex) : safeFileName) || 'documento';
+}
+
+async function selectDownloadDirectory() {
+  const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(
+    FileSystem.StorageAccessFramework.getUriForDirectoryInRoot('Download'),
+  );
+
+  if (!permissions.granted) return null;
+
+  await storeDocumentsDirectoryUri(permissions.directoryUri);
+  return permissions.directoryUri;
+}
+
 export default function Documents() {
   const themeColors = useAppThemeColors();
   const [search, setSearch] = useState('');
-  const [openingId, setOpeningId] = useState<number | null>(null);
-  const [openError, setOpenError] = useState('');
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [downloadError, setDownloadError] = useState('');
 
   const documentsQuery = useQuery({
     queryKey: queryKeys.documents,
@@ -98,31 +120,73 @@ export default function Documents() {
     return Array.from(groups.entries());
   }, [filteredDocuments]);
 
-  const openDocument = async (document: CondominiumDocumentDto) => {
+  const downloadDocument = async (document: CondominiumDocumentDto) => {
     const accessToken = getApiAccessToken();
     if (!accessToken) {
-      setOpenError('Tu sesión ya no es válida. Inicia sesión nuevamente.');
+      setDownloadError('Tu sesión ya no es válida. Inicia sesión nuevamente.');
       return;
     }
     if (!FileSystem.cacheDirectory) {
-      setOpenError('No hay almacenamiento temporal disponible.');
+      setDownloadError('No hay almacenamiento disponible en el dispositivo.');
       return;
     }
 
-    setOpeningId(document.id);
-    setOpenError('');
+    setDownloadingId(document.id);
+    setDownloadError('');
+
+    let temporaryUri: string | null = null;
 
     try {
-      const localUri = `${FileSystem.cacheDirectory}document-${document.id}-${Date.now()}.${fileExtension(document.fileName)}`;
+      temporaryUri = `${FileSystem.cacheDirectory}document-${document.id}-${Date.now()}.${fileExtension(document.fileName)}`;
       const result = await FileSystem.downloadAsync(
         buildApiUrl(document.fileUrl),
-        localUri,
+        temporaryUri,
         { headers: { Authorization: `Bearer ${accessToken}` } },
       );
+      if (result.status < 200 || result.status >= 300) throw new Error('Download failed');
 
-      if (Platform.OS === 'android' && isPdfDocument(document)) {
-        const contentUri = await getContentUriAsync(result.uri);
-        await Linking.openURL(contentUri);
+      if (Platform.OS === 'android') {
+        let directoryUri = await loadDocumentsDirectoryUri();
+        if (!directoryUri) directoryUri = await selectDownloadDirectory();
+
+        if (!directoryUri) {
+          setDownloadError('Selecciona una carpeta para guardar el documento.');
+          return;
+        }
+
+        let savedUri: string;
+        try {
+          savedUri = await FileSystem.StorageAccessFramework.createFileAsync(
+            directoryUri,
+            fileNameWithoutExtension(document.fileName),
+            document.fileMimeType || 'application/octet-stream',
+          );
+        } catch {
+          await clearDocumentsDirectoryUri();
+          const newDirectoryUri = await selectDownloadDirectory();
+          if (!newDirectoryUri) {
+            setDownloadError('Selecciona una carpeta para guardar el documento.');
+            return;
+          }
+          savedUri = await FileSystem.StorageAccessFramework.createFileAsync(
+            newDirectoryUri,
+            fileNameWithoutExtension(document.fileName),
+            document.fileMimeType || 'application/octet-stream',
+          );
+        }
+
+        const fileContents = await FileSystem.readAsStringAsync(result.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        await FileSystem.StorageAccessFramework.writeAsStringAsync(savedUri, fileContents, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        Alert.alert(
+          'Documento descargado',
+          `${document.fileName} se guardó en la carpeta seleccionada.`,
+          [{ text: 'Aceptar' }],
+        );
         return;
       }
 
@@ -136,13 +200,12 @@ export default function Documents() {
 
       await Linking.openURL(result.uri);
     } catch {
-      setOpenError(
-        isPdfDocument(document)
-          ? 'No se pudo abrir el PDF en el dispositivo.'
-          : 'No se pudo descargar el documento.',
-      );
+      setDownloadError('No se pudo descargar el documento.');
     } finally {
-      setOpeningId(null);
+      if (temporaryUri) {
+        await FileSystem.deleteAsync(temporaryUri, { idempotent: true }).catch(() => undefined);
+      }
+      setDownloadingId(null);
     }
   };
 
@@ -153,7 +216,7 @@ export default function Documents() {
           Documentos
         </Text>
         <Text className="font-body text-base text-med-gray dark:text-[#B9B2C2]">
-          Consulta los archivos compartidos por la administración.
+          Descarga los archivos compartidos por la administración para verlos en tu teléfono.
         </Text>
       </View>
 
@@ -169,9 +232,9 @@ export default function Documents() {
         />
       </View>
 
-      {openError ? (
+      {downloadError ? (
         <Card className="border border-danger/30 px-4 py-3">
-          <Text className="font-body text-sm text-danger">{openError}</Text>
+          <Text className="font-body text-sm text-danger">{downloadError}</Text>
         </Card>
       ) : null}
 
@@ -203,11 +266,11 @@ export default function Documents() {
                 return (
                   <Pressable
                     key={document.id}
-                    accessibilityHint={pdf ? 'Abre el PDF' : 'Descarga el documento'}
+                    accessibilityHint="Descarga el documento en el teléfono"
                     accessibilityRole="button"
                     className="flex-row items-center gap-3 rounded-xl px-2 py-3"
-                    disabled={openingId === document.id}
-                    onPress={() => void openDocument(document)}
+                    disabled={downloadingId === document.id}
+                    onPress={() => void downloadDocument(document)}
                   >
                     <View className="h-11 w-11 items-center justify-center rounded-xl bg-[#F1EDF5] dark:bg-[#18131F]">
                       <Ionicons
@@ -230,13 +293,13 @@ export default function Documents() {
                     </View>
 
                     <Button
-                      accessibilityLabel={`${pdf ? 'Abrir' : 'Descargar'} ${document.fileName}`}
-                      icon={pdf ? 'eye-outline' : 'download-outline'}
-                      loading={openingId === document.id}
+                      accessibilityLabel={`Descargar ${document.fileName}`}
+                      icon="download-outline"
+                      loading={downloadingId === document.id}
                       size="sm"
-                      title={pdf ? 'Ver' : ''}
+                      title=""
                       variant="outline"
-                      onPress={() => void openDocument(document)}
+                      onPress={() => void downloadDocument(document)}
                     />
                   </Pressable>
                 );

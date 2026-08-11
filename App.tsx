@@ -204,8 +204,12 @@ function AppShell() {
   const handleLogout = useCallback(async () => {
     setApiAccessToken(null);
     setSession(null);
+    setNotificationsSeenAt(null);
+    setIsHomeRefreshing(false);
+    await queryClient.cancelQueries();
+    queryClient.clear();
     await clearStoredSession();
-  }, []);
+  }, [queryClient]);
 
   useEffect(() => {
     let isMounted = true;
@@ -376,15 +380,23 @@ function AppShell() {
 
   useEffect(() => {
     const userId = session?.user.id;
+    let isCurrentUser = true;
 
     if (!userId) {
       setNotificationsSeenAt(null);
       return;
     }
 
+    setNotificationsSeenAt(null);
     void loadNotificationSeenAt(userId).then((seenAt) => {
-      setNotificationsSeenAt(seenAt);
+      if (isCurrentUser) {
+        setNotificationsSeenAt(seenAt);
+      }
     });
+
+    return () => {
+      isCurrentUser = false;
+    };
   }, [session?.user.id]);
 
   const unreadNotificationsCount = useMemo(() => {
@@ -583,11 +595,15 @@ function AppShell() {
   );
 
   const handleLogin = useCallback(async (credentials: LoginPayload) => {
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    setNotificationsSeenAt(null);
+    setIsHomeRefreshing(false);
     const nextSession = await login(credentials);
     setApiAccessToken(nextSession.accessToken);
     setSession(nextSession);
     await storeSession(nextSession);
-  }, []);
+  }, [queryClient]);
 
   const handleHomeRefresh = useCallback(async () => {
     if (!isAuthenticated) {

@@ -3,6 +3,7 @@ import type { AuthResponse } from './types';
 
 const SESSION_STORAGE_KEY = '@buenentorno/session';
 const NOTIFICATIONS_SEEN_AT_KEY_PREFIX = '@buenentorno/notifications-seen-at';
+const DOCUMENTS_DIRECTORY_URI_KEY = '@buenentorno/documents-directory-uri';
 
 export async function loadStoredSession() {
   const value = await AsyncStorage.getItem(SESSION_STORAGE_KEY);
@@ -37,4 +38,16 @@ export async function loadNotificationSeenAt(userId: number) {
 
 export async function storeNotificationSeenAt(userId: number, seenAt: string) {
   await AsyncStorage.setItem(getNotificationSeenAtStorageKey(userId), seenAt);
+}
+
+export async function loadDocumentsDirectoryUri() {
+  return AsyncStorage.getItem(DOCUMENTS_DIRECTORY_URI_KEY);
+}
+
+export async function storeDocumentsDirectoryUri(directoryUri: string) {
+  await AsyncStorage.setItem(DOCUMENTS_DIRECTORY_URI_KEY, directoryUri);
+}
+
+export async function clearDocumentsDirectoryUri() {
+  await AsyncStorage.removeItem(DOCUMENTS_DIRECTORY_URI_KEY);
 }
