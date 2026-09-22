@@ -125,6 +125,8 @@ export interface PaymentAllocationDto {
 }
 
 export interface PaymentDto {
+  submittedByUserId?: number | null;
+  reviewedByUserId?: number | null;
   id: number;
   amount: number;
   creditAppliedAmount: number;

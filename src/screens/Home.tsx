@@ -355,6 +355,7 @@ export default function Home({
                                 >
                                   {movement.amount}
                                 </Text>
+                                {movement.kind === 'charge' && <Text className="font-body text-xs text-primary dark:text-[#F7F2FB]">Abonado: {movement.paidAmount}{'\n'}Saldo pendiente: {movement.pendingAmount}</Text>}
                               </View>
                             </View>
                           </Card>

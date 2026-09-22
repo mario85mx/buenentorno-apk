@@ -36,6 +36,10 @@ export interface PaymentTransactionReceipt {
 export interface PaymentTransaction {
   id: string;
   kind: 'charge' | 'payment';
+  chargeId?: number;
+  unitId?: number;
+  paidAmount?: string;
+  pendingAmount?: string;
   concept: string;
   concepts: string[];
   summary: string;

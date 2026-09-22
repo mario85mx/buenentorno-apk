@@ -284,7 +284,7 @@ function getClientChargeStatus(
   charge: ChargeDto,
   hasPendingReview: boolean,
 ): PaymentTransaction['status'] {
-  if (charge.pendingAmount <= 0 || charge.status === 'PAID') {
+  if (charge.status === 'PAID') {
     return 'Pagado';
   }
 
@@ -512,9 +512,6 @@ export function mapAccountMovements(
       .flatMap((charge) => {
         const transaction = mapChargeToTransaction(charge, unit);
 
-        if (transaction.status === 'Pagado') {
-          return [];
-        }
 
         return {
           transaction,
@@ -543,7 +540,7 @@ function mapChargeToTransaction(
 ): PaymentTransaction {
   const blockedChargeIds = getUnitBlockedChargeIds(unit);
   const status = getClientChargeStatus(charge, blockedChargeIds.has(charge.id));
-  const amount = charge.pendingAmount > 0 ? charge.pendingAmount : charge.amount;
+  const amount = charge.amount;
   const sourcePaymentId = charge.allocations[0]?.paymentId;
   const sourcePayment = sourcePaymentId
     ? unit.payments.find((payment) => payment.id === sourcePaymentId) ?? null
@@ -553,6 +550,10 @@ function mapChargeToTransaction(
   return {
     id: String(charge.id),
     kind: 'charge',
+    chargeId: charge.id,
+    unitId: unit.id,
+    paidAmount: formatCurrency(charge.paidAmount),
+    pendingAmount: formatCurrency(charge.pendingAmount),
     concept: getMovementConceptPreview(concepts),
     concepts,
     summary: `Cargo de ${chargeTypeLabel(charge.type).toLowerCase()} asociado a la casa ${unit.houseNumber}.`,

@@ -107,7 +107,7 @@ type AppStackParamList = {
   documentos: undefined;
   'payment-transaction-detail': { transaction: PaymentTransaction };
   'payment-receipt-detail': { receipt: PaymentReceipt };
-  'upload-receipt': undefined;
+  'upload-receipt': { chargeId: number; unitId: number } | undefined;
   'receipt-submission-confirmation': undefined;
   'aviso-detail': { notice: Notice };
   'encuesta-detail': { surveyId: number };
@@ -981,6 +981,8 @@ function AppShell() {
                   route.key,
                   <PaymentTransactionDetail
                     transaction={route.params.transaction}
+                    onUpload={(unitId, chargeId) => navigation.navigate('upload-receipt', {unitId, chargeId})}
+                    onReceipt={receipt => navigation.navigate('payment-receipt-detail', {receipt})}
                     onBack={() => navigation.goBack()}
                   />,
                 )
@@ -1014,6 +1016,8 @@ function AppShell() {
                   'home',
                   route.key,
                   <UploadReceipt
+                    initialChargeId={route.params?.chargeId}
+                    initialUnitId={route.params?.unitId}
                     onBack={() => navigation.goBack()}
                     onSubmitSuccess={() =>
                       navigation.replace('receipt-submission-confirmation')
