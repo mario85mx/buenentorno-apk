@@ -121,6 +121,7 @@ export interface ChargeAllocationDto {
 
 export interface PaymentAllocationDto {
   amount: number;
+  creditAppliedAmount?: number;
   chargeId?: number;
 }
 

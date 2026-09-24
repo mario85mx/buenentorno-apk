@@ -1,3 +1,4 @@
+import AppliedPayments from "../components/molecules/AppliedPayments";
 import { useQuery } from "@tanstack/react-query";
 import { getMyCondominoDetail } from "../services/condomino";
 import { queryKeys } from "../services/queryKeys";
@@ -92,7 +93,10 @@ export default function PaymentTransactionDetail({
     charge && charge.amount > 0
       ? Math.min(Math.max((charge.paidAmount / charge.amount) * 100, 0), 100)
       : 0;
-  const currentReceipt = currentTransaction.receipt;
+  const currentReceipt =
+    charge?.status === "PAID" && charge.pendingAmount <= 0
+      ? currentTransaction.receipt
+      : null;
   const transactionConcepts =
     Array.isArray(currentTransaction.concepts) &&
     currentTransaction.concepts.length > 0
@@ -138,12 +142,12 @@ export default function PaymentTransactionDetail({
         ? "text-danger"
         : "text-warning";
   const showReceiptButton =
-    currentTransaction.status === "Pagado" && !!currentReceipt;
+    currentTransaction.kind === "charge" && !!currentReceipt;
   const receiptRows = useMemo(
     () =>
       currentReceipt
         ? [
-            { label: "Folio", value: `#${currentReceipt.id}` },
+            { label: "Folio del cargo", value: `#${currentReceipt.id}` },
             {
               label: "Casa",
               value: `Casa ${currentReceipt.unit ?? "Sin casa"}`,
@@ -158,10 +162,6 @@ export default function PaymentTransactionDetail({
             {
               label: receiptLabels.conceptsAmount,
               value: currentReceipt.conceptsAmount ?? currentReceipt.amount,
-            },
-            {
-              label: "Saldo a favor generado",
-              value: currentReceipt.creditGenerated ?? "$0.00",
             },
             { label: "Fecha de pago", value: currentReceipt.paymentDate },
             { label: "Método", value: currentReceipt.method },
@@ -206,7 +206,7 @@ export default function PaymentTransactionDetail({
                     Buen Entorno
                   </Text>
                   <Text className="mt-2 font-body text-sm text-white/85">
-                    Recibo del movimiento
+                    Recibo del cargo
                   </Text>
                 </View>
 
@@ -269,6 +269,22 @@ export default function PaymentTransactionDetail({
                       </View>
                     </View>
                   ) : null}
+
+                  <View className="gap-3">
+                    <Text className="font-heading text-base text-primary dark:text-[#F7F2FB]">
+                      Pagos aplicados
+                    </Text>
+                    {currentReceipt.payments.map((payment) => (
+                      <View key={payment.id} className="gap-1">
+                        <Text className="font-body-semibold text-primary dark:text-[#F7F2FB]">
+                          Pago #{payment.id} · {payment.amount}
+                        </Text>
+                        <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
+                          {payment.date} · {payment.method} · {payment.reference}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
 
                   <View className="gap-2 pt-2">
                     <Text className="font-body text-xs text-med-gray dark:text-[#B9B2C2]">
@@ -429,6 +445,8 @@ export default function PaymentTransactionDetail({
                     />
                   ) : null}
 
+                  <AppliedPayments payments={currentTransaction.appliedPayments ?? []} expanded />
+
                   <View className="gap-1 border-b border-light-gray pb-3 dark:border-[#3B3345]">
                     <View className="flex-row items-center justify-between gap-3">
                       <Text className="font-heading text-lg text-primary dark:text-[#F7F2FB]">
@@ -539,7 +557,13 @@ export default function PaymentTransactionDetail({
                     title="Ver recibo"
                     onPress={() => setIsReceiptVisible(true)}
                   />
-                ) : null}
+                ) : (
+                  <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
+                    {currentTransaction.kind === "payment"
+                      ? "El recibo se consulta desde el cargo cuando está completamente pagado."
+                      : "El recibo estará disponible cuando el cargo esté completamente pagado."}
+                  </Text>
+                )}
                 <Button
                   title="Regresar a movimientos"
                   variant="secondary"

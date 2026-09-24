@@ -17,6 +17,13 @@ export interface PaymentConceptDetail {
 }
 
 export interface PaymentTransactionReceipt {
+  payments: {
+    id: string;
+    date: string;
+    amount: string;
+    method: string;
+    reference: string;
+  }[];
   id: string;
   unit: string;
   types: string;
@@ -33,7 +40,18 @@ export interface PaymentTransactionReceipt {
   reviewNotes: string;
 }
 
+export interface AppliedPayment {
+  id: string;
+  date: string;
+  amount: string;
+  creditAmount: string;
+  method: string;
+  reference: string;
+  notes: string;
+}
+
 export interface PaymentTransaction {
+  appliedPayments?: AppliedPayment[];
   id: string;
   kind: 'charge' | 'payment';
   chargeId?: number;

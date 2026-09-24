@@ -431,7 +431,16 @@ export default function UploadReceipt({
                   }}
                 />
 
-                <InputField label="Cantidad del comprobante" keyboardType="decimal-pad" value={receiptAmount} placeholder={String(uploadAmount - creditAppliedAmount)} onChangeText={setReceiptAmount} />
+                <InputField
+                  label="Cantidad del comprobante"
+                  keyboardType="decimal-pad"
+                  value={receiptAmount}
+                  placeholder={String(uploadAmount - creditAppliedAmount)}
+                  onChangeText={setReceiptAmount}
+                  editable={selectedCharges.length > 0}
+                  accessibilityState={{ disabled: selectedCharges.length === 0 }}
+                  helperText={selectedCharges.length === 0 ? 'Selecciona un cargo para capturar la cantidad.' : undefined}
+                />
                 <Text className="font-body text-sm text-primary dark:text-white">Importe total: {formatCurrency((selectedUnit?.charges ?? []).filter(c => selectedChargeIds.includes(String(c.id))).reduce((sum,c)=>sum+c.amount,0))} · Abonado: {formatCurrency((selectedUnit?.charges ?? []).filter(c => selectedChargeIds.includes(String(c.id))).reduce((sum,c)=>sum+c.paidAmount,0))} · Saldo pendiente: {formatCurrency(uploadAmount)}</Text>
                 {remainingReceiptAmount + creditAppliedAmount > uploadAmount && <Text className="text-danger">La cantidad del comprobante supera el saldo pendiente.</Text>}
                 <DatePickerField

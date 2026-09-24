@@ -157,7 +157,11 @@ export default function Home({
         concept.toLowerCase().includes(normalizedQuery),
       ) ||
       movement.dueDate.includes(searchQuery.trim()) ||
-      movement.reference.toLowerCase().includes(normalizedQuery);
+      movement.reference.toLowerCase().includes(normalizedQuery) ||
+      movement.appliedPayments?.some((payment) =>
+        [payment.id, payment.date, payment.reference, payment.method, payment.notes]
+          .join(' ').toLowerCase().includes(normalizedQuery),
+      );
     const matchesStatus =
       selectedMovementStatus === 'Todos' ||
       movement.status === selectedMovementStatus;

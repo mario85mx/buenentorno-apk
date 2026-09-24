@@ -49,7 +49,16 @@
           "cameraPermission": "Buen Entorno necesita acceso a la cámara para escanear códigos QR de acceso."
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {

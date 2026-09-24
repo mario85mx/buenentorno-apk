@@ -523,10 +523,34 @@ export function mapAccountMovements(
   const paymentMovements = condomino.units.flatMap((unit) =>
     unit.payments
       .filter((payment) => payment.status === 'ACTIVE')
-      .map((payment) => ({
-        transaction: mapPaymentToTransaction(payment, unit),
-        sortAt: new Date(payment.paymentDate ?? payment.createdAt).getTime(),
-      })),
+      .flatMap((payment) => {
+        const transaction = mapPaymentToTransaction(payment, unit);
+        const visibleCharges = new Set(unit.charges
+          .filter((charge) => charge.status !== 'CANCELLED')
+          .map((charge) => charge.id));
+        const grouped = payment.isHistorical ? [] : payment.allocations.filter(
+          (allocation) => allocation.chargeId != null && visibleCharges.has(allocation.chargeId),
+        );
+        if (grouped.length) {
+          const groupedCash = grouped.reduce((sum, allocation) =>
+            sum + allocation.amount - (allocation.creditAppliedAmount ?? 0), 0);
+          const remainingAllocations = payment.allocations.filter((allocation) => !grouped.includes(allocation));
+          const remainingCredit = remainingAllocations.reduce((sum, allocation) =>
+            sum + (allocation.creditAppliedAmount ?? 0), 0);
+          const remaining = Math.round(Math.max(payment.amount - groupedCash + remainingCredit, 0) * 100) / 100;
+          if (remaining === 0) return [];
+          transaction.amount = formatCurrency(remaining);
+          transaction.concept = remainingAllocations.length
+            ? 'Importe no agrupado en cargos visibles'
+            : 'Saldo a favor generado';
+          transaction.concepts = [transaction.concept];
+          transaction.summary = `${transaction.concept} en la cuenta de la casa ${unit.houseNumber}.`;
+        }
+        return [{
+          transaction,
+          sortAt: new Date(payment.paymentDate ?? payment.createdAt).getTime(),
+        }];
+      }),
   );
 
   return [...chargeMovements, ...paymentMovements]
@@ -567,7 +591,22 @@ function mapChargeToTransaction(
       ? paymentMethodLabel(sourcePayment.method)
       : 'Sin método registrado',
     badgeVariant: getChargeStatusBadgeVariant(status),
-    receipt: sourcePayment ? mapTransactionReceipt(sourcePayment, unit) : null,
+    receipt: mapChargeReceipt(charge, unit),
+    appliedPayments: unit.payments.flatMap((payment) => {
+      if (payment.status !== 'ACTIVE' || payment.isHistorical) return [];
+      const allocations = payment.allocations.filter((allocation) => allocation.chargeId === charge.id);
+      const amount = allocations.reduce((sum, allocation) => sum + allocation.amount, 0);
+      if (amount <= 0) return [];
+      return [{
+        id: String(payment.id),
+        date: formatDate(payment.paymentDate),
+        amount: formatCurrency(amount),
+        creditAmount: formatCurrency(allocations.reduce((sum, allocation) => sum + (allocation.creditAppliedAmount ?? 0), 0)),
+        method: paymentMethodLabel(payment.method),
+        reference: asText(payment.reference) ?? 'Sin referencia',
+        notes: asText(payment.notes) ?? '',
+      }];
+    }),
   };
 }
 
@@ -575,7 +614,6 @@ function mapPaymentToTransaction(
   payment: PaymentDto,
   unit: UnitDetailDto,
 ): PaymentTransaction {
-  const receipt = mapTransactionReceipt(payment, unit);
   const concepts = getPaymentConcepts(payment, unit);
   const status = paymentStatusLabel(payment.status);
   const paymentLabel = payment.isHistorical ? 'Pago histórico' : 'Pago registrado';
@@ -593,36 +631,56 @@ function mapPaymentToTransaction(
     reference: asText(payment.reference) ?? 'Sin referencia',
     method: paymentMethodLabel(payment.method),
     badgeVariant: paymentStatusBadgeVariant(status),
-    receipt,
+    receipt: null,
   };
 }
 
-function mapTransactionReceipt(
-  payment: PaymentDto,
+function mapChargeReceipt(
+  charge: ChargeDto,
   unit: UnitDetailDto,
-): PaymentTransactionReceipt {
-  const printableStatus =
-    payment.status.toUpperCase() === 'ACTIVE'
-      ? 'Pagado'
-      : paymentStatusLabel(payment.status);
-  const concepts = getPaymentConcepts(payment, unit);
-  const conceptDetails = getPaymentConceptDetails(payment, unit);
+): PaymentTransactionReceipt | null {
+  if (charge.status !== 'PAID' || !(charge.pendingAmount <= 0)) {
+    return null;
+  }
+
+  const payments = unit.payments.flatMap((payment) => {
+    if (payment.status !== 'ACTIVE' || payment.isHistorical) return [];
+    const appliedAmount = payment.allocations
+      .filter((allocation) => allocation.chargeId === charge.id)
+      .reduce((sum, allocation) => sum + allocation.amount, 0);
+    if (appliedAmount <= 0) return [];
+    return [{ payment, appliedAmount }];
+  }).sort((left, right) =>
+    new Date(left.payment.paymentDate).getTime() - new Date(right.payment.paymentDate).getTime(),
+  );
+  if (!payments.length) return null;
 
   return {
-    id: String(payment.id),
+    id: String(charge.id),
     unit: unit.houseNumber,
-    types: getPaymentTypesSummary(payment),
-    concepts,
-    conceptDetails,
-    amount: formatCurrency(payment.amount),
-    conceptsAmount: getPaymentConceptsAmount(payment),
-    creditGenerated: getPaymentCreditGenerated(payment),
-    paymentDate: formatDate(payment.paymentDate),
-    method: paymentMethodLabel(payment.method),
-    reference: asText(payment.reference) ?? 'Sin referencia',
-    trackingKey: asText(payment.trackingKey) ?? 'Sin clave',
-    status: printableStatus,
-    reviewNotes: asText(payment.reviewNotes) ?? 'Aprobado sin archivo adjunto',
+    types: chargeTypeLabel(charge.type),
+    concepts: [charge.concept],
+    conceptDetails: [{
+      label: charge.concept,
+      amount: formatCurrency(charge.amount),
+      notes: asText(charge.notes) ?? 'Sin notas',
+    }],
+    amount: formatCurrency(charge.amount),
+    conceptsAmount: formatCurrency(charge.amount),
+    creditGenerated: formatCurrency(0),
+    paymentDate: formatDate(payments[payments.length - 1].payment.paymentDate),
+    method: [...new Set(payments.map(({ payment }) => paymentMethodLabel(payment.method)))].join(', '),
+    reference: payments.map(({ payment }) => asText(payment.reference) ?? 'Sin referencia').join(', '),
+    trackingKey: payments.map(({ payment }) => asText(payment.trackingKey) ?? 'Sin clave').join(', '),
+    status: 'Pagado',
+    reviewNotes: 'Cargo liquidado completamente',
+    payments: payments.map(({ payment, appliedAmount }) => ({
+      id: String(payment.id),
+      date: formatDate(payment.paymentDate),
+      amount: formatCurrency(appliedAmount),
+      method: paymentMethodLabel(payment.method),
+      reference: asText(payment.reference) ?? 'Sin referencia',
+    })),
   };
 }
 
