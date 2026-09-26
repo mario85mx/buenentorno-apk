@@ -8,7 +8,10 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.mario85mx.buenentornoapp"
+      "bundleIdentifier": "com.mario85mx.buenentornoapp",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -22,13 +25,18 @@
       ],
       "predictiveBackGestureEnabled": false,
       "package": "com.buenentorno.appmx",
-      "versionCode": 3
+      "versionCode": 3,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
+      ]
     },
     "web": {
       "bundler": "metro",
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "./plugins/withIosPodDeploymentTarget",
       [
         "expo-splash-screen",
         {
@@ -53,12 +61,16 @@
       [
         "expo-build-properties",
         {
+          "ios": {
+            "enableSceneSupport": true
+          },
           "android": {
             "enableMinifyInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true
           }
         }
-      ]
+      ],
+      "expo-status-bar"
     ],
     "extra": {
       "eas": {

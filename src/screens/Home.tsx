@@ -325,17 +325,6 @@ export default function Home({
                                   </View>
                                 </View>
 
-                                <View className="flex-row items-center gap-1">
-                                  <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">
-                                    {movement.dateLabel}:
-                                  </Text>
-                                  <Text
-                                    className="font-body-semibold text-sm text-primary dark:text-[#F7F2FB]"
-                                    numberOfLines={1}
-                                  >
-                                    {movement.dueDate}
-                                  </Text>
-                                </View>
                               </View>
 
                               <View className="shrink-0 items-end gap-2">
@@ -359,9 +348,32 @@ export default function Home({
                                 >
                                   {movement.amount}
                                 </Text>
-                                {movement.kind === 'charge' && <Text className="font-body text-xs text-primary dark:text-[#F7F2FB]">Abonado: {movement.paidAmount}{'\n'}Saldo pendiente: {movement.pendingAmount}</Text>}
                               </View>
                             </View>
+                            <Text className="mt-2 font-body text-xs text-med-gray dark:text-[#B9B2C2]">
+                              {movement.dateLabel}: {movement.dueDate}
+                            </Text>
+                            {movement.kind === 'charge' && (
+                              <View className="mt-3 flex-row items-center justify-between gap-2 border-t border-light-gray pt-2 dark:border-[#3B3345]">
+                                <Text
+                                  className="flex-1 font-body text-xs text-primary dark:text-[#F7F2FB]"
+                                  numberOfLines={1}
+                                  adjustsFontSizeToFit
+                                  minimumFontScale={0.8}
+                                >
+                                  Abonado: <Text className="font-body-semibold">{movement.paidAmount}</Text>
+                                </Text>
+                                <Text
+                                  className="font-body text-right text-xs text-primary dark:text-[#F7F2FB]"
+                                  style={{ flex: 1.4 }}
+                                  numberOfLines={1}
+                                  adjustsFontSizeToFit
+                                  minimumFontScale={0.8}
+                                >
+                                  Saldo pendiente: <Text className="font-body-semibold">{movement.pendingAmount}</Text>
+                                </Text>
+                              </View>
+                            )}
                           </Card>
                         </Pressable>
                       );
