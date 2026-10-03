@@ -6,8 +6,7 @@ export type TransactionStatus =
   | 'Vencido'
   | 'En revisión'
   | 'Rechazado'
-  | 'Cancelado'
-  | 'Parcial';
+  | 'Cancelado';
 export type TransactionBadgeVariant = 'success' | 'danger' | 'warning';
 
 export interface PaymentConceptDetail {
@@ -77,8 +76,7 @@ export type ReceiptStatus =
   | 'En revisión'
   | 'Rechazado'
   | 'Cancelado'
-  | 'Pendiente'
-  | 'Parcial';
+  | 'Pendiente';
 export type ReceiptBadgeVariant = 'warning' | 'success' | 'danger';
 
 export interface PaymentReceipt {

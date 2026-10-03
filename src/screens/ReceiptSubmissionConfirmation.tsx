@@ -45,7 +45,7 @@ export default function ReceiptSubmissionConfirmation({
       <View className="gap-3">
         <Button title="Volver al inicio" onPress={onBackHome} />
         <Button
-          title="Subir otro comprobante"
+          title="Pagar otro cargo"
           variant="secondary"
           onPress={onUploadAnother}
         />

@@ -227,10 +227,6 @@ function paymentStatusLabel(status: string): PaymentReceipt['status'] {
     return 'Cancelado';
   }
 
-  if (normalizedStatus === 'PARTIAL') {
-    return 'Parcial';
-  }
-
   if (normalizedStatus === 'PENDING') {
     return 'Pendiente';
   }
@@ -323,10 +319,6 @@ function paymentReviewLabel(payment: PaymentDto, status: PaymentReceipt['status'
 
   if (status === 'Cancelado') {
     return asText(payment.cancelReason) ?? 'Pago cancelado';
-  }
-
-  if (status === 'Parcial') {
-    return asText(payment.reviewNotes) ?? 'Pago aplicado parcialmente';
   }
 
   if (status === 'Pendiente') {

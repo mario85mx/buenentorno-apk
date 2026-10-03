@@ -981,8 +981,6 @@ function AppShell() {
                   route.key,
                   <PaymentTransactionDetail
                     transaction={route.params.transaction}
-                    onUpload={(unitId, chargeId) => navigation.navigate('upload-receipt', {unitId, chargeId})}
-                    onReceipt={receipt => navigation.navigate('payment-receipt-detail', {receipt})}
                     onBack={() => navigation.goBack()}
                   />,
                 )

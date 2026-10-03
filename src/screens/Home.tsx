@@ -32,7 +32,6 @@ const movementStatusOptions = [
   'Vencido',
   'En revisión',
   'Pagado',
-  'Parcial',
   'Rechazado',
   'Cancelado',
 ] as const;
@@ -40,7 +39,6 @@ const receiptStatusOptions = [
   'Todos',
   'Pendiente',
   'En revisión',
-  'Parcial',
   'Rechazado',
   'Cancelado',
   'Pagado',
@@ -52,10 +50,6 @@ function movementAmountColor(status: PaymentTransaction['status']) {
   }
 
   if (status === 'Pendiente' || status === 'En revisión') {
-    return 'text-warning';
-  }
-
-  if (status === 'Parcial') {
     return 'text-warning';
   }
 
@@ -353,27 +347,7 @@ export default function Home({
                             <Text className="mt-2 font-body text-xs text-med-gray dark:text-[#B9B2C2]">
                               {movement.dateLabel}: {movement.dueDate}
                             </Text>
-                            {movement.kind === 'charge' && (
-                              <View className="mt-3 flex-row items-center justify-between gap-2 border-t border-light-gray pt-2 dark:border-[#3B3345]">
-                                <Text
-                                  className="flex-1 font-body text-xs text-primary dark:text-[#F7F2FB]"
-                                  numberOfLines={1}
-                                  adjustsFontSizeToFit
-                                  minimumFontScale={0.8}
-                                >
-                                  Abonado: <Text className="font-body-semibold">{movement.paidAmount}</Text>
-                                </Text>
-                                <Text
-                                  className="font-body text-right text-xs text-primary dark:text-[#F7F2FB]"
-                                  style={{ flex: 1.4 }}
-                                  numberOfLines={1}
-                                  adjustsFontSizeToFit
-                                  minimumFontScale={0.8}
-                                >
-                                  Saldo pendiente: <Text className="font-body-semibold">{movement.pendingAmount}</Text>
-                                </Text>
-                              </View>
-                            )}
+
                           </Card>
                         </Pressable>
                       );

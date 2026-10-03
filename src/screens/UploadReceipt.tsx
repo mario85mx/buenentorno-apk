@@ -21,6 +21,7 @@ import { getErrorMessage, getHttpStatus } from '../services/error';
 import { formatCurrency } from '../services/mappers';
 import { queryKeys } from '../services/queryKeys';
 import type {
+  UnitDetailDto,
   UploadReceiptFilePayload,
 } from '../services/types';
 
@@ -130,6 +131,34 @@ function getCreditApplication(
   };
 }
 
+function getUnitBlockedChargeIds(unit: UnitDetailDto) {
+  const blockedChargeIds = new Set<number>();
+
+  unit.payments.forEach((payment) => {
+    if (payment.status !== 'PENDING_REVIEW') {
+      return;
+    }
+
+    payment.allocations.forEach((allocation) => {
+      if (allocation.chargeId) {
+        blockedChargeIds.add(allocation.chargeId);
+      }
+    });
+  });
+
+  return blockedChargeIds;
+}
+
+function hasAvailableCharge(unit: UnitDetailDto, blockedChargeIds: Set<number>) {
+  return unit.charges.some(
+    (charge) =>
+      charge.pendingAmount > 0 &&
+      charge.status !== 'PAID' &&
+      charge.status !== 'CANCELLED' &&
+      !blockedChargeIds.has(charge.id),
+  );
+}
+
 export default function UploadReceipt({
   onBack,
   onSubmitSuccess,
@@ -155,7 +184,6 @@ export default function UploadReceipt({
   });
 
   const [paymentDate, setPaymentDate] = useState<Date | null>(new Date());
-  const [receiptAmount, setReceiptAmount] = useState('');
   const [reference, setReference] = useState('');
   const [trackingKey, setTrackingKey] = useState('');
   const [note, setNote] = useState('');
@@ -192,6 +220,26 @@ export default function UploadReceipt({
     [condominiumQuery.data?.units, selectedUnitId],
   );
 
+  const selectedUnitBlockedChargeIds = useMemo(
+    () => (selectedUnit ? getUnitBlockedChargeIds(selectedUnit) : new Set<number>()),
+    [selectedUnit],
+  );
+
+  const selectedUnitBlockedMessage = useMemo(() => {
+    if (!selectedUnit) {
+      return '';
+    }
+
+    if (
+      selectedUnitBlockedChargeIds.size > 0 &&
+      !hasAvailableCharge(selectedUnit, selectedUnitBlockedChargeIds)
+    ) {
+      return 'Los adeudos pendientes de esta casa ya tienen un comprobante en revisión.';
+    }
+
+    return '';
+  }, [selectedUnit, selectedUnitBlockedChargeIds]);
+
   const chargeOptions = useMemo(
     () =>
       (selectedUnit?.charges ?? [])
@@ -199,14 +247,15 @@ export default function UploadReceipt({
           (charge) =>
             charge.pendingAmount > 0 &&
             charge.status !== 'PAID' &&
-            charge.status !== 'CANCELLED',
+            charge.status !== 'CANCELLED' &&
+            !selectedUnitBlockedChargeIds.has(charge.id),
         )
         .map((charge) => ({
           id: String(charge.id),
           charge: charge.concept,
           amount: charge.pendingAmount,
         })),
-    [selectedUnit?.charges],
+    [selectedUnit?.charges, selectedUnitBlockedChargeIds],
   );
 
   useEffect(() => {
@@ -242,7 +291,15 @@ export default function UploadReceipt({
       ).creditAppliedAmount,
     [selectedUnit?.balance.credit, uploadAmount, useCreditBalance],
   );
-  const remainingReceiptAmount = receiptAmount === '' ? roundCurrencyAmount(uploadAmount - creditAppliedAmount) : Number(receiptAmount);
+  const remainingReceiptAmount = useMemo(
+    () =>
+      getCreditApplication(
+        uploadAmount,
+        selectedUnit?.balance.credit ?? 0,
+        useCreditBalance,
+      ).remainingReceiptAmount,
+    [selectedUnit?.balance.credit, uploadAmount, useCreditBalance],
+  );
   const selectedChargesLabel = selectedCharges.length
     ? `${selectedCharges.length} cargo${
         selectedCharges.length > 1 ? 's' : ''
@@ -363,9 +420,7 @@ export default function UploadReceipt({
   const canSubmit =
     !!selectedUnit &&
     !!paymentDate &&
-    Number.isFinite(remainingReceiptAmount) &&
     remainingReceiptAmount > 0 &&
-    Math.round((remainingReceiptAmount + creditAppliedAmount) * 100) <= Math.round(uploadAmount * 100) &&
     !!selectedFile &&
     !reportPaymentMutation.isPending;
 
@@ -413,7 +468,8 @@ export default function UploadReceipt({
                     {formatCurrency(remainingReceiptAmount)}
                   </Text>
                   <Text className="font-body text-xs text-white/70">
-                    Captura la cantidad de tu comprobante para abonar al cargo seleccionado.
+                    Se calcula automáticamente con los cargos seleccionados y el
+                    saldo a favor aplicado.
                   </Text>
                 </View>
 
@@ -431,18 +487,6 @@ export default function UploadReceipt({
                   }}
                 />
 
-                <InputField
-                  label="Cantidad del comprobante"
-                  keyboardType="decimal-pad"
-                  value={receiptAmount}
-                  placeholder={String(uploadAmount - creditAppliedAmount)}
-                  onChangeText={setReceiptAmount}
-                  editable={selectedCharges.length > 0}
-                  accessibilityState={{ disabled: selectedCharges.length === 0 }}
-                  helperText={selectedCharges.length === 0 ? 'Selecciona un cargo para capturar la cantidad.' : undefined}
-                />
-                <Text className="font-body text-sm text-primary dark:text-white">Importe total: {formatCurrency((selectedUnit?.charges ?? []).filter(c => selectedChargeIds.includes(String(c.id))).reduce((sum,c)=>sum+c.amount,0))} · Abonado: {formatCurrency((selectedUnit?.charges ?? []).filter(c => selectedChargeIds.includes(String(c.id))).reduce((sum,c)=>sum+c.paidAmount,0))} · Saldo pendiente: {formatCurrency(uploadAmount)}</Text>
-                {remainingReceiptAmount + creditAppliedAmount > uploadAmount && <Text className="text-danger">La cantidad del comprobante supera el saldo pendiente.</Text>}
                 <DatePickerField
                   label="Fecha de Pago"
                   value={paymentDate}
@@ -485,7 +529,7 @@ export default function UploadReceipt({
                 <FieldShell
                   active={isChargesOpen}
                   helperText={
-
+                    selectedUnitBlockedMessage ||
                     (selectedCharges.length
                       ? `Total seleccionado: ${formatCurrency(uploadAmount)}. Saldo a favor descontado: ${formatCurrency(
                           creditAppliedAmount,
@@ -729,14 +773,10 @@ export default function UploadReceipt({
                         trackingKey: trackingKey.trim() || undefined,
                         notes: note.trim() || undefined,
                         receiptNotes: observations.trim() || undefined,
-                        allocations: (() => {
-                          let remaining = Math.round((remainingReceiptAmount + creditAppliedAmount) * 100);
-                          return selectedCharges.flatMap(charge => {
-                            const applied = Math.min(Math.round(charge.amount * 100), remaining);
-                            remaining -= applied;
-                            return applied > 0 ? [{chargeId: Number(charge.id), amount: applied / 100}] : [];
-                          });
-                        })(),
+                        allocations: selectedCharges.map((charge) => ({
+                          chargeId: Number(charge.id),
+                          amount: charge.amount,
+                        })),
                         file: selectedFile,
                       },
                       {
@@ -811,7 +851,7 @@ export default function UploadReceipt({
             })
           ) : (
             <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
-              {
+              {selectedUnitBlockedMessage ||
                 'No hay adeudos pendientes disponibles para esta unidad.'}
             </Text>
           )}

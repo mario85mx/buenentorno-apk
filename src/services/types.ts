@@ -449,7 +449,8 @@ export type CommonAreaReservationStatus =
   | 'PENDING'
   | 'APPROVED'
   | 'REJECTED'
-  | 'CANCELLED';
+  | 'CANCELLED'
+  | 'EXPIRED';
 
 export interface CommonAreaReservationAreaDto {
   id: number;

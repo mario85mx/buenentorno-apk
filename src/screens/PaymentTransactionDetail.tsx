@@ -1,13 +1,9 @@
-import AppliedPayments from "../components/molecules/AppliedPayments";
 import { useQuery } from "@tanstack/react-query";
 import { getMyCondominoDetail } from "../services/condomino";
 import { queryKeys } from "../services/queryKeys";
 import {
   mapAccountMovements,
-  mapPaymentsToReceipts,
-  formatCurrency,
 } from "../services/mappers";
-import type { PaymentReceipt } from "../services/viewModels";
 import { useAppThemeColors } from "../theme/tokens";
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
@@ -25,8 +21,6 @@ export type { PaymentTransaction } from "../services/viewModels";
 
 export interface PaymentTransactionDetailProps {
   onBack?: () => void;
-  onUpload?: (unitId: number, chargeId: number) => void;
-  onReceipt?: (receipt: PaymentReceipt) => void;
   transaction?: PaymentTransaction | null;
 }
 
@@ -41,8 +35,6 @@ function formatReceiptDate(value: Date) {
 export default function PaymentTransactionDetail({
   onBack,
   transaction,
-  onUpload,
-  onReceipt,
 }: PaymentTransactionDetailProps) {
   const themeColors = useAppThemeColors();
   const [isReceiptVisible, setIsReceiptVisible] = useState(false);
@@ -79,20 +71,6 @@ export default function PaymentTransactionDetail({
   const charge = unit?.charges.find(
     (charge) => charge.id === currentTransaction.chargeId,
   );
-  const relatedPayments =
-    unit?.payments.filter((p) =>
-      p.allocations.some((a) => a.chargeId === charge?.id),
-    ) ?? [];
-  const relatedIds = new Set(
-    relatedPayments.flatMap((p) => p.receipts.map((r) => String(r.id))),
-  );
-  const relatedReceipts = mapPaymentsToReceipts(query.data).filter((r) =>
-    relatedIds.has(r.id),
-  );
-  const paidPercentage =
-    charge && charge.amount > 0
-      ? Math.min(Math.max((charge.paidAmount / charge.amount) * 100, 0), 100)
-      : 0;
   const currentReceipt =
     charge?.status === "PAID" && charge.pendingAmount <= 0
       ? currentTransaction.receipt
@@ -364,192 +342,6 @@ export default function PaymentTransactionDetail({
                 ))}
               </View>
 
-              {charge ? (
-                <View className="gap-5">
-                  <View className="gap-3 rounded-2xl border border-light-gray bg-[#F8F7FA] p-4 dark:border-[#3B3345] dark:bg-[#18131F]">
-                    <View className="gap-3 sm:flex-row">
-                      <View className="flex-1 rounded-xl border border-light-gray bg-white p-3 dark:border-[#3B3345] dark:bg-[#211A29]">
-                        <Text className="font-body-semibold text-xs uppercase text-med-gray dark:text-[#B9B2C2]">
-                          Importe total
-                        </Text>
-                        <Text className="mt-1 font-heading text-xl text-primary dark:text-[#F7F2FB]">
-                          {formatCurrency(charge.amount)}
-                        </Text>
-                      </View>
-                      <View className="flex-1 rounded-xl border border-light-gray bg-white p-3 dark:border-[#3B3345] dark:bg-[#211A29]">
-                        <Text className="font-body-semibold text-xs uppercase text-med-gray dark:text-[#B9B2C2]">
-                          Total abonado
-                        </Text>
-                        <Text className="mt-1 font-heading text-xl text-success">
-                          {formatCurrency(charge.paidAmount)}
-                        </Text>
-                      </View>
-                      <View className="flex-1 rounded-xl border border-light-gray bg-white p-3 dark:border-[#3B3345] dark:bg-[#211A29]">
-                        <Text className="font-body-semibold text-xs uppercase text-med-gray dark:text-[#B9B2C2]">
-                          Saldo pendiente
-                        </Text>
-                        <Text
-                          className={`mt-1 font-heading text-xl ${
-                            charge.pendingAmount > 0
-                              ? "text-warning"
-                              : "text-success"
-                          }`}
-                        >
-                          {formatCurrency(charge.pendingAmount)}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View className="gap-2">
-                      <View className="flex-row items-center justify-between">
-                        <Text className="font-body-semibold text-xs text-med-gray dark:text-[#D1CAD9]">
-                          Progreso del pago
-                        </Text>
-                        <Text className="font-heading text-xs text-primary dark:text-[#F7F2FB]">
-                          {paidPercentage.toFixed(0)}%
-                        </Text>
-                      </View>
-                      <View className="h-2 overflow-hidden rounded-full bg-light-gray dark:bg-[#3B3345]">
-                        <View
-                          className="h-full rounded-full bg-primary dark:bg-[#633FA1]"
-                          style={{
-                            width: `${paidPercentage}%` as `${number}%`,
-                          }}
-                        />
-                      </View>
-                      <Text className="font-body text-xs text-med-gray dark:text-[#B9B2C2]">
-                        Abonado: {formatCurrency(charge.paidAmount)} de{" "}
-                        {formatCurrency(charge.amount)} · Saldo pendiente:{" "}
-                        {formatCurrency(charge.pendingAmount)}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View className="flex-row items-center gap-2">
-                    <Ionicons
-                      color={themeColors.textMuted}
-                      name="person-outline"
-                      size={18}
-                    />
-                    <Text className="font-body text-sm text-med-gray dark:text-[#D1CAD9]">
-                      {query.data?.name} ·{" "}
-                      {new Date(charge.createdAt).toLocaleDateString("es-MX")}
-                    </Text>
-                  </View>
-
-                  {charge.pendingAmount > 0 && charge.status !== "CANCELLED" ? (
-                    <Button
-                      icon="cloud-upload-outline"
-                      title="Subir otro comprobante"
-                      onPress={() => onUpload?.(unit!.id, charge.id)}
-                    />
-                  ) : null}
-
-                  <AppliedPayments payments={currentTransaction.appliedPayments ?? []} expanded />
-
-                  <View className="gap-1 border-b border-light-gray pb-3 dark:border-[#3B3345]">
-                    <View className="flex-row items-center justify-between gap-3">
-                      <Text className="font-heading text-lg text-primary dark:text-[#F7F2FB]">
-                        Comprobantes relacionados
-                      </Text>
-                      <View className="min-w-7 items-center rounded-full bg-primary/10 px-2 py-1 dark:bg-[#633FA1]/20">
-                        <Text className="font-heading text-xs text-primary dark:text-[#A98BDD]">
-                          {relatedReceipts.length}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text className="font-body text-xs text-med-gray dark:text-[#B9B2C2]">
-                      Historial completo de pagos y revisiones del cargo.
-                    </Text>
-                  </View>
-
-                  {!relatedReceipts.length ? (
-                    <View className="items-center gap-2 rounded-2xl border border-dashed border-light-gray px-4 py-8 dark:border-[#3B3345]">
-                      <Ionicons
-                        color={themeColors.textSubtle}
-                        name="document-text-outline"
-                        size={30}
-                      />
-                      <Text className="font-body-semibold text-sm text-primary dark:text-[#F7F2FB]">
-                        Sin comprobantes registrados
-                      </Text>
-                      <Text className="text-center font-body text-xs text-med-gray dark:text-[#B9B2C2]">
-                        Los comprobantes enviados para este cargo aparecerán
-                        aquí.
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  {relatedReceipts.map((receipt) => {
-                    const payment = relatedPayments.find((item) =>
-                      item.receipts.some(
-                        (itemReceipt) => String(itemReceipt.id) === receipt.id,
-                      ),
-                    );
-
-                    return (
-                      <View
-                        key={receipt.id}
-                        className="gap-3 rounded-2xl border border-light-gray bg-white p-4 dark:border-[#3B3345] dark:bg-[#211A29]"
-                      >
-                        <View className="flex-row items-start justify-between gap-3">
-                          <View className="flex-1 flex-row items-start gap-3">
-                            <View className="h-10 w-10 items-center justify-center rounded-xl bg-primary/10 dark:bg-[#633FA1]/20">
-                              <Ionicons
-                                color={themeColors.text}
-                                name="cash-outline"
-                                size={21}
-                              />
-                            </View>
-                            <View className="flex-1 gap-1">
-                              <Text className="font-heading text-sm text-primary dark:text-[#F7F2FB]">
-                                Comprobante #{receipt.id}
-                              </Text>
-                              <Text className="font-body text-xs text-med-gray dark:text-[#B9B2C2]">
-                                Pago #{payment?.id ?? "—"} · {receipt.generated}
-                              </Text>
-                            </View>
-                          </View>
-                          <View className="items-end gap-1">
-                            <Text className="font-heading text-base text-primary dark:text-[#F7F2FB]">
-                              {receipt.amount}
-                            </Text>
-                            <Badge
-                              label={receipt.status}
-                              variant={receipt.badgeVariant}
-                            />
-                          </View>
-                        </View>
-
-                        <View className="gap-2 border-t border-light-gray pt-3 dark:border-[#3B3345]">
-                          <Text className="font-body text-xs text-med-gray dark:text-[#D1CAD9]">
-                            Usuario:{" "}
-                            {payment?.submittedByUserId ?? query.data?.name}
-                          </Text>
-                          <Text className="font-body text-xs text-med-gray dark:text-[#D1CAD9]">
-                            Revisión:{" "}
-                            {payment?.reviewedAt
-                              ? new Date(payment.reviewedAt).toLocaleString(
-                                  "es-MX",
-                                )
-                              : "Pendiente"}
-                            {" · "}Administrador:{" "}
-                            {payment?.reviewedByUserId ?? "—"}
-                          </Text>
-                        </View>
-
-                        <Button
-                          icon="document-attach-outline"
-                          title="Consultar comprobante"
-                          variant="outline"
-                          size="sm"
-                          onPress={() => onReceipt?.(receipt)}
-                        />
-                      </View>
-                    );
-                  })}
-                </View>
-              ) : null}
               <View className="gap-3">
                 {showReceiptButton ? (
                   <Button

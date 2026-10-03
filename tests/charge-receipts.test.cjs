@@ -113,3 +113,11 @@ test('preserves generated credit, unallocated payments and historical payments',
   assert.equal(historical.length, 3);
   assert.ok(historical.filter((item) => item.kind === 'charge').every((item) => item.appliedPayments.length === 0));
 });
+
+test('legacy incomplete charges are displayed without an installment status', () => {
+  const charge = movements('PARTIAL', 60).find((item) => item.kind === 'charge');
+  assert.ok(charge);
+  assert.doesNotMatch(charge.status, /parcial|abono/i);
+  assert.ok(['Pendiente', 'Vencido', 'En revisión'].includes(charge.status));
+  assert.equal(charge.receipt, null);
+});

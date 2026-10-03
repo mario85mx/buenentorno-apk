@@ -32,6 +32,7 @@ const reservationStatusOptions = [
   { label: 'Aprobadas', value: 'APPROVED' },
   { label: 'Rechazadas', value: 'REJECTED' },
   { label: 'Canceladas', value: 'CANCELLED' },
+  { label: 'Expiradas', value: 'EXPIRED' },
 ] as const;
 
 type ReservationStatusFilter = (typeof reservationStatusOptions)[number]['value'];
@@ -71,6 +72,7 @@ function formatStatus(status: CommonAreaReservationStatus) {
   if (status === 'APPROVED') return 'Aprobada';
   if (status === 'REJECTED') return 'Rechazada';
   if (status === 'CANCELLED') return 'Cancelada';
+  if (status === 'EXPIRED') return 'Expirada';
   return 'Pendiente';
 }
 
@@ -83,7 +85,7 @@ function statusTone(status: CommonAreaReservationStatus) {
     return 'bg-[#FDECEC] dark:bg-[#3B2026] text-danger';
   }
 
-  if (status === 'CANCELLED') {
+  if (status === 'CANCELLED' || status === 'EXPIRED') {
     return 'bg-[#EEF0F3] dark:bg-[#2A2730] text-med-gray dark:text-[#B9B2C2]';
   }
 
