@@ -386,7 +386,7 @@ export interface ReportPaymentPayload {
     chargeId: number;
     amount: number;
   }>;
-  file?: UploadReceiptFilePayload;
+  files?: UploadReceiptFilePayload[];
 }
 
 export interface CommonAreaAuthorDto {

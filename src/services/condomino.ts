@@ -55,11 +55,11 @@ export async function reportPayment(payload: ReportPaymentPayload) {
     form.append('allocations', JSON.stringify(payload.allocations));
   }
 
-  if (payload.file) {
+  for (const file of payload.files ?? []) {
     form.append('file', {
-      uri: payload.file.uri,
-      name: payload.file.name,
-      type: payload.file.mimeType,
+      uri: file.uri,
+      name: file.name,
+      type: file.mimeType,
     } as never);
   }
 

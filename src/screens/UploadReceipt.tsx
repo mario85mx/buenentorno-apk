@@ -190,8 +190,7 @@ export default function UploadReceipt({
   const [observations, setObservations] = useState('');
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(initialUnitId ? String(initialUnitId) : null);
   const [selectedChargeIds, setSelectedChargeIds] = useState<string[]>(initialChargeId ? [String(initialChargeId)] : []);
-  const [selectedFile, setSelectedFile] =
-    useState<UploadReceiptFilePayload | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<UploadReceiptFilePayload[]>([]);
   const [activePicker, setActivePicker] = useState<'photo' | 'file' | null>(null);
   const [isChargesOpen, setIsChargesOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -274,6 +273,20 @@ export default function UploadReceipt({
       ),
     [chargeOptions, selectedChargeIds],
   );
+  const maxReceiptFiles = selectedUnit?.payments.some(
+    (payment) => payment.status === 'REJECTED' && payment.allocations.some(
+      (allocation) => selectedCharges.some((charge) => Number(charge.id) === allocation.chargeId),
+    ),
+  ) ? 3 : 1;
+
+  useEffect(() => {
+    setSelectedFiles([]);
+  }, [selectedUnitId]);
+
+  useEffect(() => {
+    setSelectedFiles((files) => files.length > maxReceiptFiles ? [] : files);
+  }, [maxReceiptFiles]);
+
   const uploadAmount = useMemo(
     () =>
       selectedCharges.reduce(
@@ -314,37 +327,37 @@ export default function UploadReceipt({
     );
   };
 
-  const selectReceiptAsset = ({
-    uri,
-    mimeType,
-    name,
-    size,
-  }: {
+  const selectReceiptAssets = (assets: Array<{
     uri: string;
     mimeType?: string | null;
     name?: string | null;
     size?: number | null;
-  }) => {
-    const normalizedMimeType = normalizeReceiptMimeType(mimeType, name, uri);
-
-    if (!normalizedMimeType) {
-      setErrorMessage('Solo se permiten archivos JPG, PNG o PDF.');
+  }>) => {
+    const nextFiles: UploadReceiptFilePayload[] = [];
+    for (const asset of assets) {
+      const mimeType = normalizeReceiptMimeType(asset.mimeType, asset.name, asset.uri);
+      if (!mimeType) {
+        setErrorMessage('Solo se permiten archivos JPG, PNG o PDF.');
+        return;
+      }
+      if (asset.size && asset.size > maxReceiptFileSize) {
+        setErrorMessage('Cada archivo debe pesar como máximo 5 MB.');
+        return;
+      }
+      nextFiles.push({
+        uri: asset.uri,
+        name: asset.name?.trim() || `comprobante-${Date.now()}-${nextFiles.length}.${receiptFileExtension(mimeType)}`,
+        mimeType,
+        size: asset.size,
+      });
+    }
+    const combined = maxReceiptFiles === 1 ? nextFiles : [...selectedFiles, ...nextFiles];
+    const unique = combined.filter((file, index) => combined.findIndex((other) => other.uri === file.uri) === index);
+    if (unique.length > maxReceiptFiles) {
+      setErrorMessage(`Puedes subir un máximo de ${maxReceiptFiles} comprobante${maxReceiptFiles > 1 ? 's' : ''}.`);
       return;
     }
-
-    if (size && size > maxReceiptFileSize) {
-      setErrorMessage('El archivo supera el peso máximo de 5 MB.');
-      return;
-    }
-
-    setSelectedFile({
-      uri,
-      name:
-        name?.trim() ||
-        `comprobante-${Date.now()}.${receiptFileExtension(normalizedMimeType)}`,
-      mimeType: normalizedMimeType,
-      size,
-    });
+    setSelectedFiles(unique);
   };
 
   const pickReceiptFromFiles = async () => {
@@ -355,26 +368,21 @@ export default function UploadReceipt({
       const result = await DocumentPicker.getDocumentAsync({
         type: [...allowedReceiptMimeTypes],
         copyToCacheDirectory: true,
-        multiple: false,
+        multiple: maxReceiptFiles > 1,
       });
 
       if (result.canceled) {
         return;
       }
 
-      const asset = result.assets[0];
-
-      if (!asset) {
+      if (!result.assets.length) {
         setErrorMessage('No se pudo leer el archivo seleccionado.');
         return;
       }
 
-      selectReceiptAsset({
-        uri: asset.uri,
-        mimeType: asset.mimeType,
-        name: asset.name,
-        size: asset.size,
-      });
+      selectReceiptAssets(result.assets);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, 'No fue posible abrir el selector de archivos.'));
     } finally {
       setActivePicker(null);
     }
@@ -389,7 +397,8 @@ export default function UploadReceipt({
       // by the user, so broad media-library permission is unnecessary.
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsMultipleSelection: false,
+        allowsMultipleSelection: maxReceiptFiles > 1,
+        selectionLimit: Math.max(1, maxReceiptFiles - selectedFiles.length),
         quality: 1,
         preferredAssetRepresentationMode:
           ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
@@ -399,19 +408,19 @@ export default function UploadReceipt({
         return;
       }
 
-      const asset = result.assets[0];
-
-      if (!asset) {
+      if (!result.assets.length) {
         setErrorMessage('No se pudo leer la foto seleccionada.');
         return;
       }
 
-      selectReceiptAsset({
+      selectReceiptAssets(result.assets.map((asset) => ({
         uri: asset.uri,
         mimeType: asset.mimeType,
         name: asset.fileName,
         size: asset.fileSize,
-      });
+      })));
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, 'No fue posible abrir el selector de archivos.'));
     } finally {
       setActivePicker(null);
     }
@@ -421,7 +430,9 @@ export default function UploadReceipt({
     !!selectedUnit &&
     !!paymentDate &&
     remainingReceiptAmount > 0 &&
-    !!selectedFile &&
+    selectedFiles.length > 0 &&
+    selectedFiles.length <= maxReceiptFiles &&
+    !activePicker &&
     !reportPaymentMutation.isPending;
 
   return (
@@ -618,93 +629,58 @@ export default function UploadReceipt({
                 {remainingReceiptAmount > 0 ? (
                   <>
                     <FieldShell
-                      active={!!selectedFile}
-                      helperText={
-                        selectedFile
-                          ? 'Archivo listo para enviarse con el comprobante.'
-                          : 'Elige una foto o un archivo JPG, PNG o PDF. Peso máximo: 5 MB.'
-                      }
-                      label="Archivo"
+                      active={selectedFiles.length > 0}
+                      helperText={maxReceiptFiles === 3
+                        ? 'Tu pago anterior fue rechazado. Adjunta de 1 a 3 archivos JPG, PNG o PDF, de hasta 5 MB cada uno.'
+                        : 'Primer envío: una foto o un archivo JPG, PNG o PDF de hasta 5 MB.'}
+                      label={`Comprobantes (${selectedFiles.length}/${maxReceiptFiles})`}
                     >
                       <View className="gap-3">
-                        <View
-                          className={cn(
-                            FIELD_CONTROL_CLASS,
-                            'flex-row items-center justify-between gap-3',
-                          )}
-                        >
-                          <View className="flex-1 flex-row items-center gap-3">
-                            <Ionicons
-                              color={themeColors.text}
-                              name="attach-outline"
-                              size={20}
-                            />
+                        {selectedFiles.map((file, index) => (
+                          <View key={file.uri} className="flex-row items-center gap-3 rounded-xl border border-light-gray dark:border-[#3B3345] p-3">
+                            <Ionicons color={themeColors.text} name="attach-outline" size={20} />
                             <View className="flex-1">
-                              <Text
-                                className="font-body text-base text-primary dark:text-[#F7F2FB]"
-                                numberOfLines={1}
-                              >
-                                {selectedFile?.name ?? 'Ningún archivo seleccionado'}
+                              <Text className="font-body text-base text-primary dark:text-[#F7F2FB]" numberOfLines={1}>{file.name}</Text>
+                              <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
+                                {receiptMimeTypeLabel(file.mimeType)}{file.size ? ` · ${formatFileSize(file.size)}` : ''}
                               </Text>
-                              {selectedFile ? (
-                                <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">
-                                  {receiptMimeTypeLabel(selectedFile.mimeType)}
-                                  {selectedFile.size
-                                    ? ` · ${formatFileSize(selectedFile.size)}`
-                                    : ''}
-                                </Text>
-                              ) : null}
                             </View>
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={`Quitar ${file.name}`}
+                              disabled={reportPaymentMutation.isPending || !!activePicker}
+                              className="p-2"
+                              onPress={() => setSelectedFiles((files) => files.filter((_, i) => i !== index))}
+                            >
+                              <Ionicons color={themeColors.textMuted} name="close-circle-outline" size={24} />
+                            </Pressable>
                           </View>
-                          <Ionicons
-                            color={themeColors.textMuted}
-                            name={
-                              selectedFile
-                                ? 'checkmark-circle-outline'
-                                : 'cloud-upload-outline'
-                            }
-                            size={20}
-                          />
-                        </View>
-
+                        ))}
+                        {!selectedFiles.length ? (
+                          <Text className="font-body text-sm text-med-gray dark:text-[#B9B2C2]">Ningún archivo seleccionado</Text>
+                        ) : null}
                         <View className="flex-row gap-3">
                           <Button
                             className="flex-1"
-                            disabled={activePicker === 'file'}
+                            disabled={!!activePicker || reportPaymentMutation.isPending || (maxReceiptFiles > 1 && selectedFiles.length >= maxReceiptFiles)}
                             icon="images-outline"
                             loading={activePicker === 'photo'}
                             title="Fotos"
                             variant="secondary"
-                            onPress={() => {
-                              void pickReceiptFromPhotos();
-                            }}
+                            onPress={() => { void pickReceiptFromPhotos(); }}
                           />
                           <Button
                             className="flex-1"
-                            disabled={activePicker === 'photo'}
+                            disabled={!!activePicker || reportPaymentMutation.isPending || (maxReceiptFiles > 1 && selectedFiles.length >= maxReceiptFiles)}
                             icon="document-outline"
                             loading={activePicker === 'file'}
                             title="Archivos"
                             variant="secondary"
-                            onPress={() => {
-                              void pickReceiptFromFiles();
-                            }}
+                            onPress={() => { void pickReceiptFromFiles(); }}
                           />
                         </View>
                       </View>
                     </FieldShell>
-
-                    {selectedFile ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        className="self-start rounded-full border border-light-gray dark:border-[#3B3345] px-3 py-2"
-                        onPress={() => setSelectedFile(null)}
-                      >
-                        <Text className="font-body-semibold text-sm text-primary dark:text-[#F7F2FB]">
-                          Quitar archivo
-                        </Text>
-                      </Pressable>
-                    ) : null}
 
                     <InputField
                       label="Nota"
@@ -754,7 +730,7 @@ export default function UploadReceipt({
                       return;
                     }
 
-                    if (!selectedFile) {
+                    if (!selectedFiles.length || selectedFiles.length > maxReceiptFiles) {
                       setErrorMessage(
                         'Selecciona una foto o un archivo JPG, PNG o PDF antes de enviar el comprobante.',
                       );
@@ -777,7 +753,7 @@ export default function UploadReceipt({
                           chargeId: Number(charge.id),
                           amount: charge.amount,
                         })),
-                        file: selectedFile,
+                        files: selectedFiles,
                       },
                       {
                         onError: (error) => {
