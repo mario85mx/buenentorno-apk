@@ -78,7 +78,6 @@ export interface ForgotPasswordPayload {
 
 export interface ForgotPasswordResponse {
   accepted: boolean;
-  debugResetUrl?: string;
 }
 
 export interface UpdateMePayload {

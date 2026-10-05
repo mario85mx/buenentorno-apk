@@ -9,14 +9,13 @@ import { getErrorMessage } from '../services/error';
 
 export interface RecoveryProps {
   onBack?: () => void;
-  onSubmit?: (email: string) => Promise<{ accepted: boolean; debugResetUrl?: string }>;
+  onSubmit?: (email: string) => Promise<{ accepted: boolean }>;
 }
 
 export default function Recovery({ onBack, onSubmit }: RecoveryProps) {
   const themeColors = useAppThemeColors();
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  const [debugResetUrl, setDebugResetUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const canSubmit = email.trim().length > 0;
@@ -30,8 +29,7 @@ export default function Recovery({ onBack, onSubmit }: RecoveryProps) {
       setIsSubmitting(true);
       setErrorMessage('');
       const response = await onSubmit(email.trim());
-      setDebugResetUrl(response.debugResetUrl ?? null);
-      setSubmitted(true);
+      setSubmitted(response.accepted);
     } catch (error) {
       setErrorMessage(
         getErrorMessage(error, 'No fue posible enviar la recuperación.'),
@@ -70,13 +68,8 @@ export default function Recovery({ onBack, onSubmit }: RecoveryProps) {
               Revisa tu correo
             </Text>
             <Text className="font-body text-base leading-6 text-dark-gray dark:text-[#D1CAD9]">
-              Enviamos las instrucciones de recuperacion a {email}.
+              Si el correo está registrado, recibirás las instrucciones de recuperación.
             </Text>
-            {debugResetUrl ? (
-              <Text className="font-body text-sm leading-6 text-med-gray dark:text-[#B9B2C2]">
-                URL de recuperación local: {debugResetUrl}
-              </Text>
-            ) : null}
           </View>
           <Button size="lg" title="Volver al login" onPress={onBack} />
         </View>
