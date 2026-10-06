@@ -8,9 +8,5 @@ export function isCondominiumModuleEnabled(
     return false;
   }
 
-  if (user.role === 'SUPERADMIN') {
-    return true;
-  }
-
   return user.currentCondominium?.activeModules?.includes(module) ?? false;
 }
